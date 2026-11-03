@@ -1,0 +1,197 @@
+package fr.skytasul.quests.api;
+
+import fr.skytasul.quests.api.npcs.NpcClickType;
+import fr.skytasul.quests.api.options.description.QuestDescription;
+import fr.skytasul.quests.api.utils.PlayerListCategory;
+import fr.skytasul.quests.api.utils.progress.ProgressBarConfig;
+import fr.skytasul.quests.api.utils.progress.itemdescription.ItemsDescriptionConfiguration;
+import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+
+public interface QuestsConfiguration {
+
+	static @NotNull QuestsConfiguration getConfig() {
+		return QuestsPlugin.getPlugin().getConfiguration();
+	}
+
+	@NotNull
+	Quests getQuestsConfig();
+
+	@NotNull
+	Gui getGuiConfig();
+
+	@NotNull
+	Dialogs getDialogsConfig();
+
+	@NotNull
+	QuestsSelection getQuestsSelectionConfig();
+
+	@NotNull
+	QuestsMenu getQuestsMenuConfig();
+
+	@NotNull
+	StageDescription getStageDescriptionConfig();
+
+	@NotNull
+	QuestDescription getQuestDescriptionConfig();
+
+	@NotNull
+	Holograms getHologramsConfig();
+
+	interface Quests {
+
+		int getDefaultTimer();
+
+		int maxLaunchedQuests();
+
+		boolean scoreboards();
+
+		boolean playerQuestUpdateMessage();
+
+		boolean playerStageStartMessage();
+
+		boolean questConfirmGUI();
+
+		boolean sounds();
+
+		String finishSound();
+
+		String nextStageSound();
+
+		boolean fireworks();
+
+		Collection<NpcClickType> getNpcClicks();
+
+		boolean dontCancelNpcClick();
+
+		ItemStack getDefaultQuestItem();
+
+		double startParticleDistance();
+
+		int requirementUpdateTime();
+
+		boolean requirementReasonOnMultipleQuests();
+
+		boolean stageEndRewardsMessage();
+
+	}
+
+	interface Gui {
+
+		ItemStack getPreviousPageItem();
+
+		ItemStack getNextPageItem();
+
+		boolean showVerticalSeparator();
+
+		boolean hideFolderIfSingleCategory();
+
+	}
+
+	interface Dialogs {
+
+		boolean sendInActionBar();
+
+		int getDefaultTime();
+
+		boolean isSkippableByDefault();
+
+		boolean isClickDisabled();
+
+		boolean isHistoryEnabled();
+
+		int getMaxMessagesPerHistoryPage();
+
+		int getMaxDistance();
+
+		int getMaxDistanceSquared();
+
+		String getDefaultPlayerSound();
+
+		String getDefaultNPCSound();
+
+	}
+
+	interface QuestsSelection {
+
+		boolean skipGuiIfOnlyOneQuest();
+
+		boolean hideNoRequirements();
+
+	}
+
+	interface QuestsMenu {
+
+		boolean isNotStartedTabOpenedWhenEmpty();
+
+		boolean allowPlayerCancelQuest();
+
+		Set<PlayerListCategory> getEnabledTabs();
+
+		boolean keepMenuOpen();
+
+		boolean categorizeQuestsByPools();
+
+	}
+
+	interface StageDescription extends ItemsDescriptionConfiguration, ProgressBarConfig {
+
+		String getStageDescriptionFormat();
+
+	}
+
+	interface Database {
+
+		boolean enabled();
+
+		@Nullable
+		String host();
+
+		int port();
+
+		@NotNull
+		String databaseName();
+
+		@Nullable
+		String username();
+
+		@Nullable
+		String password();
+
+		boolean sslEnabled();
+
+		@Nullable
+		String connectionString();
+
+		@NotNull
+		Map<String, String> tables();
+
+	}
+
+	interface Holograms {
+
+		@Nullable
+		String preferredPlugin();
+
+		boolean disableTextHologram();
+
+		double additionalHeight();
+
+		@Nullable
+		ItemStack launchItem();
+
+		@Nullable
+		ItemStack cannotLaunchItem();
+
+		@Nullable
+		ItemStack talkItem();
+
+		boolean customItemName();
+
+	}
+
+}

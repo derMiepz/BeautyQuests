@@ -1,0 +1,64 @@
+package fr.skytasul.quests.gui.quests;
+
+import com.cryptomorin.xseries.XMaterial;
+import fr.skytasul.quests.api.QuestsAPI;
+import fr.skytasul.quests.api.QuestsConfiguration;
+import fr.skytasul.quests.api.gui.ItemUtils;
+import fr.skytasul.quests.api.gui.close.CloseBehavior;
+import fr.skytasul.quests.api.gui.close.StandardCloseBehavior;
+import fr.skytasul.quests.api.gui.templates.PagedGUI;
+import fr.skytasul.quests.api.localization.Lang;
+import fr.skytasul.quests.api.options.QuestOption;
+import fr.skytasul.quests.api.options.description.DescriptionSource;
+import fr.skytasul.quests.api.options.description.QuestDescriptionContext;
+import fr.skytasul.quests.api.players.PlayerManager;
+import fr.skytasul.quests.api.questers.Quester;
+import fr.skytasul.quests.api.quests.Quest;
+import fr.skytasul.quests.api.utils.PlayerListCategory;
+import org.bukkit.DyeColor;
+import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.NotNull;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
+public class ChoosePlayerQuestGUI extends PagedGUI<Quest> {
+
+	private final @NotNull Player targetPlayer;
+	private final @NotNull Quester acc;
+
+	public ChoosePlayerQuestGUI(@NotNull Collection<Quest> quests, @NotNull Player player) {
+		super(Lang.INVENTORY_CHOOSE.toString(), DyeColor.MAGENTA, quests);
+
+		this.targetPlayer = player;
+		this.acc = PlayerManager.getPlayerAccount(player);
+
+		Collections.sort(super.objects);
+
+		setBarButton(2, new BarButton(ItemUtils.item(XMaterial.BOOKSHELF, Lang.questMenu.toString(),
+				QuestOption.formatDescription(Lang.questMenuLore.toString())), event -> {
+					new PlayerListGUI(QuestsAPI.getAPI().getQuesterManager(), player, false).open(getViewer());
+				}));
+	}
+
+	@Override
+	public @NotNull ItemStack getItemStack(@NotNull Quest quest) {
+		List<String> lore = new QuestDescriptionContext(QuestsConfiguration.getConfig().getQuestDescriptionConfig(), quest,
+				targetPlayer, acc, PlayerListCategory.NOT_STARTED, DescriptionSource.MENU).formatDescription();
+		return ItemUtils.nameAndLore(quest.getQuestItem(), Lang.formatNormal.format(quest), lore);
+	}
+
+	@Override
+	public void click(@NotNull Quest existing, @NotNull ItemStack item, @NotNull ClickType clickType) {
+		close();
+		existing.doNpcClick(targetPlayer);
+	}
+
+	@Override
+	public @NotNull CloseBehavior onClose(@NotNull Player player) {
+		return StandardCloseBehavior.REMOVE;
+	}
+
+}

@@ -1,0 +1,968 @@
+package fr.skytasul.quests;
+
+import com.cryptomorin.xseries.XMaterial;
+import com.cryptomorin.xseries.XSound;
+import fr.skytasul.quests.api.QuestsConfiguration;
+import fr.skytasul.quests.api.gui.ItemUtils;
+import fr.skytasul.quests.api.localization.Lang;
+import fr.skytasul.quests.api.npcs.NpcClickType;
+import fr.skytasul.quests.api.options.description.DescriptionSource;
+import fr.skytasul.quests.api.options.description.QuestDescription;
+import fr.skytasul.quests.api.utils.PlayerListCategory;
+import fr.skytasul.quests.api.utils.Utils;
+import fr.skytasul.quests.api.utils.logger.LoggerExpanded;
+import fr.skytasul.quests.utils.ParticleEffect;
+import fr.skytasul.quests.utils.ParticleEffect.ParticleShape;
+import fr.skytasul.quests.utils.compatibility.InternalIntegrations;
+import org.bukkit.*;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.FireworkMeta;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class QuestsConfigurationImplementation implements QuestsConfiguration {
+
+	public static QuestsConfigurationImplementation getConfiguration() {
+		return BeautyQuests.getInstance().getConfiguration();
+	}
+
+	private static final LoggerExpanded LOGGER = LoggerExpanded.get("BeautyQuests.Configuration");
+
+	private String minecraftTranslationsFile = null;
+	private boolean enablePrefix = true;
+	private boolean hookAcounts = false;
+	private boolean usePlayerBlockTracker = false;
+	private ParticleEffect particleStart;
+	private ParticleEffect particleTalk;
+	private ParticleEffect particleNext;
+
+	private FireworkMeta defaultFirework = null;
+
+	boolean backups = true;
+
+	boolean saveCycleMessage = true;
+	int saveCycle = 15;
+
+	private final FileConfiguration config;
+	private final ConfigurationSection dataFile;
+
+	private QuestsConfig quests;
+	private DatabaseConfig database;
+	private GuiConfig gui;
+	private DialogsConfig dialogs;
+	private QuestsSelectionConfig selection;
+	private QuestsMenuConfig menu;
+	private StageDescriptionConfig stageDescription;
+	private QuestDescriptionConfig questDescription;
+	private HologramsConfig holograms;
+
+
+	QuestsConfigurationImplementation(FileConfiguration config, ConfigurationSection dataFile) {
+		this.config = config;
+		this.dataFile = dataFile;
+
+		quests = new QuestsConfig();
+		database = new DatabaseConfig(config.getConfigurationSection("database"));
+		gui = new GuiConfig(config.getConfigurationSection("gui"));
+		dialogs = new DialogsConfig(config.getConfigurationSection("dialogs"));
+		selection = new QuestsSelectionConfig(config.getConfigurationSection("questsSelection"));
+		menu = new QuestsMenuConfig(config.getConfigurationSection("questsMenu"));
+		stageDescription = new StageDescriptionConfig(config.getConfigurationSection("stage description"));
+		questDescription = new QuestDescriptionConfig(config.getConfigurationSection("questDescription"));
+		holograms = HologramsConfig.load(this, config.getConfigurationSection("holograms"));
+	}
+
+	boolean update() {
+		boolean result = false;
+		result |= database.update();
+		result |= gui.update();
+		result |= dialogs.update();
+		result |= selection.update();
+		result |= menu.update();
+		result |= stageDescription.update();
+		result |= HologramsConfig.update(config.getConfigurationSection("holograms"));
+		return result;
+	}
+
+	void init() {
+		backups = config.getBoolean("backups", true);
+		if (!backups)
+			LOGGER.warning("Backups are disabled due to the presence of \"backups: false\" in config.yml.");
+
+		minecraftTranslationsFile = config.getString("minecraftTranslationsFile");
+		quests.init();
+		database.init();
+		gui.init();
+		dialogs.init();
+		selection.init();
+		menu.init();
+		stageDescription.init();
+		questDescription.init();
+		holograms = HologramsConfig.load(this, config.getConfigurationSection("holograms"));
+
+		saveCycle = config.getInt("saveCycle");
+		saveCycleMessage = config.getBoolean("saveCycleMessage");
+		enablePrefix = config.getBoolean("enablePrefix");
+		hookAcounts = config.getBoolean("accountsHook");
+		usePlayerBlockTracker = config.getBoolean("usePlayerBlockTracker");
+
+		particleStart = loadParticles("start", new ParticleEffect(Utils.valueOfEnum(Particle.class, "REDSTONE", "DUST"),
+				ParticleShape.POINT, Color.YELLOW));
+		particleTalk = loadParticles("talk", new ParticleEffect(
+				Utils.valueOfEnum(Particle.class, "VILLAGER_HAPPY", "HAPPY_VILLAGER"), ParticleShape.BAR, null));
+		particleNext =
+				loadParticles("next", new ParticleEffect(Utils.valueOfEnum(Particle.class, "SMOKE_NORMAL", "SMOKE"),
+						ParticleShape.SPOT, null));
+
+		if (dataFile.contains("firework")) {
+			defaultFirework = dataFile.getSerializable("firework", FireworkMeta.class);
+		}else {
+			FireworkMeta fm = (FireworkMeta) Bukkit.getItemFactory().getItemMeta(XMaterial.FIREWORK_ROCKET.parseMaterial());
+			fm.addEffect(FireworkEffect.builder().with(FireworkEffect.Type.BURST).withTrail().withFlicker().withColor(Color.YELLOW, Color.ORANGE).withFade(Color.SILVER).build());
+			fm.setPower(0);
+			defaultFirework = fm;
+		}
+	}
+
+	private ParticleEffect loadParticles(String name, ParticleEffect defaultParticle) {
+		ParticleEffect particle = null;
+		if (config.getBoolean(name + ".enabled")) {
+			try{
+				particle = ParticleEffect.deserialize(config.getConfigurationSection(name));
+			}catch (Exception ex){
+				LOGGER.warning("Loading of {0} particles failed: Invalid particle, color or shape.", ex, name);
+			}
+			if (particle == null) particle = defaultParticle;
+			LOGGER.debug("Loaded {0} particles: {1}", name, particle.toString());
+		}
+		return particle;
+	}
+
+	private static ItemStack loadItem(ConfigurationSection config, String key, ItemStack def) {
+		if (config.isItemStack(key))
+			return config.getItemStack(key);
+		if (config.isString(key))
+			return XMaterial.matchXMaterial(config.getString(key)).map(XMaterial::parseItem).orElse(def);
+		LOGGER.warning("Cannot load item '{0}' from config", key);
+		return def;
+	}
+
+	private String loadSound(String key) {
+		String sound = config.getString(key);
+		if (XSound.of(sound).isEmpty())
+			LOGGER.warning("Sound '{0}' is not a valid Bukkit sound.", sound);
+		return sound;
+	}
+
+	private static boolean migrateEntry(ConfigurationSection oldConfig, String oldKey, ConfigurationSection newConfig,
+			String newKey) {
+		if (oldConfig.contains(oldKey)) {
+			newConfig.set(newKey, oldConfig.get(oldKey));
+			oldConfig.set(oldKey, null);
+			return true;
+		}
+		return false;
+	}
+
+	public FileConfiguration getConfig() {
+		return config;
+	}
+
+	@Override
+	public @NotNull Quests getQuestsConfig() {
+		return quests;
+	}
+
+	public @NotNull DatabaseConfig getDatabaseConfig() {
+		return database;
+	}
+
+	@Override
+	public @NotNull Gui getGuiConfig() {
+		return gui;
+	}
+
+	@Override
+	public @NotNull DialogsConfig getDialogsConfig() {
+		return dialogs;
+	}
+
+	@Override
+	public @NotNull QuestsSelectionConfig getQuestsSelectionConfig() {
+		return selection;
+	}
+
+	@Override
+	public @NotNull QuestsMenuConfig getQuestsMenuConfig() {
+		return menu;
+	}
+
+	@Override
+	public @NotNull StageDescriptionConfig getStageDescriptionConfig() {
+		return stageDescription;
+	}
+
+	@Override
+	public @NotNull QuestDescriptionConfig getQuestDescriptionConfig() {
+		return questDescription;
+	}
+
+	@Override
+	public @NotNull Holograms getHologramsConfig() {
+		return holograms;
+	}
+
+	public String getPrefix() {
+		return (enablePrefix) ? Lang.Prefix.toString() : "§6";
+	}
+
+	public String getMinecraftTranslationsFile() {
+		return minecraftTranslationsFile;
+	}
+
+	public boolean showStartParticles() {
+		return particleStart != null;
+	}
+
+	public ParticleEffect getParticleStart() {
+		return particleStart;
+	}
+
+	public boolean showTalkParticles() {
+		return particleTalk != null;
+	}
+
+	public ParticleEffect getParticleTalk() {
+		return particleTalk;
+	}
+
+	public boolean showNextParticles() {
+		return particleNext != null;
+	}
+
+	public ParticleEffect getParticleNext() {
+		return particleNext;
+	}
+
+	public FireworkMeta getDefaultFirework() {
+		return defaultFirework;
+	}
+
+	public boolean hookAccounts() {
+		return hookAcounts && InternalIntegrations.AccountsHook.isEnabled();
+	}
+
+	public boolean usePlayerBlockTracker() {
+		return usePlayerBlockTracker && InternalIntegrations.PlayerBlockTracker.isEnabled();
+	}
+
+	public QuestDescription getQuestDescription() {
+		return questDescription;
+	}
+
+	public class QuestsConfig implements QuestsConfiguration.Quests {
+
+		private int defaultTimer = 5;
+		private int maxLaunchedQuests = 0;
+		private boolean scoreboards = true;
+		private boolean sounds = true;
+		private boolean fireworks = true;
+		private String finishSound = "ENTITY_PLAYER_LEVELUP";
+		private String nextStageSound = "ITEM_FIRECHARGE_USE";
+		private ItemStack defaultQuestItem = XMaterial.BOOK.parseItem();
+		private int startParticleDistance;
+		private int requirementUpdateTime;
+		private boolean sendUpdate = true;
+		private boolean stageStart = true;
+		private boolean questConfirmGUI = false;
+		private Collection<NpcClickType> npcClicks = Arrays.asList(NpcClickType.RIGHT, NpcClickType.SHIFT_RIGHT);
+		private boolean dontCancelNpcClick = false;
+		private boolean requirementReasonOnMultipleQuests = true;
+		private boolean stageEndRewardsMessage = true;
+
+		private void init() {
+			defaultTimer = config.getInt("redoMinuts");
+			maxLaunchedQuests = config.getInt("maxLaunchedQuests");
+			scoreboards = config.getBoolean("scoreboards");
+			sendUpdate = config.getBoolean("playerQuestUpdateMessage");
+			stageStart = config.getBoolean("playerStageStartMessage");
+			questConfirmGUI = config.getBoolean("questConfirmGUI");
+			sounds = config.getBoolean("sounds");
+			fireworks = config.getBoolean("fireworks");
+			defaultQuestItem = loadItem(config, "item", XMaterial.BOOK.parseItem());
+			defaultQuestItem = ItemUtils.clearVisibleAttributes(defaultQuestItem);
+			startParticleDistance = config.getInt("startParticleDistance");
+			requirementUpdateTime = config.getInt("requirementUpdateTime");
+			finishSound = loadSound("finishSound");
+			nextStageSound = loadSound("nextStageSound");
+			try {
+				if (config.isString("npcClick")) {
+					String click = config.getString("npcClick");
+					npcClicks = Arrays.asList(click.equals("ANY") ? NpcClickType.values()
+							: new NpcClickType[] {NpcClickType.valueOf(click.toUpperCase())});
+				} else {
+					npcClicks = config.getStringList("npcClick")
+							.stream()
+							.map(String::toUpperCase)
+							.map(NpcClickType::valueOf)
+							.collect(Collectors.toList());
+				}
+			} catch (IllegalArgumentException ex) {
+				LOGGER
+						.warning("Unknown click type " + config.get("npcClick") + " for config entry \"npcClick\"");
+			}
+			dontCancelNpcClick = config.getBoolean("dont cancel npc click");
+			requirementReasonOnMultipleQuests = config.getBoolean("requirementReasonOnMultipleQuests");
+			stageEndRewardsMessage = config.getBoolean("stageEndRewardsMessage");
+		}
+
+		@Override
+		public int getDefaultTimer() {
+			return defaultTimer;
+		}
+
+		@Override
+		public int maxLaunchedQuests() {
+			return maxLaunchedQuests;
+		}
+
+		@Override
+		public boolean scoreboards() {
+			return scoreboards;
+		}
+
+		@Override
+		public boolean playerQuestUpdateMessage() {
+			return sendUpdate;
+		}
+
+		@Override
+		public boolean playerStageStartMessage() {
+			return stageStart;
+		}
+
+		@Override
+		public boolean questConfirmGUI() {
+			return questConfirmGUI;
+		}
+
+		@Override
+		public boolean sounds() {
+			return sounds;
+		}
+
+		@Override
+		public String finishSound() {
+			return finishSound;
+		}
+
+		@Override
+		public String nextStageSound() {
+			return nextStageSound;
+		}
+
+		@Override
+		public boolean fireworks() {
+			return fireworks;
+		}
+
+		@Override
+		public Collection<NpcClickType> getNpcClicks() {
+			return npcClicks;
+		}
+
+		@Override
+		public boolean dontCancelNpcClick() {
+			return dontCancelNpcClick;
+		}
+
+		@Override
+		public ItemStack getDefaultQuestItem() {
+			return defaultQuestItem;
+		}
+
+		@Override
+		public double startParticleDistance() {
+			return startParticleDistance;
+		}
+
+		@Override
+		public int requirementUpdateTime() {
+			return requirementUpdateTime;
+		}
+
+		@Override
+		public boolean requirementReasonOnMultipleQuests() {
+			return requirementReasonOnMultipleQuests;
+		}
+
+		@Override
+		public boolean stageEndRewardsMessage() {
+			return stageEndRewardsMessage;
+		}
+
+	}
+
+	public class DatabaseConfig implements QuestsConfiguration.Database {
+		private ConfigurationSection config;
+		private boolean enabled;
+		private String host;
+		private int port;
+		private String database;
+		private String username;
+		private String password;
+		private boolean ssl;
+		private String connectionString;
+		private Map<String, String> tables;
+
+		private DatabaseConfig(@NotNull ConfigurationSection config) {
+			this.config = config;
+		}
+
+		private boolean update() {
+			boolean result = false;
+			result |= migrateEntry(config, "tables.playerAccounts", config, "tables.questers");
+			result |= migrateEntry(config, "tables.playerQuests", config, "tables.questers quests");
+			result |= migrateEntry(config, "tables.playerPools", config, "tables.questers pools");
+			return result;
+		}
+
+		private void init() {
+			enabled = config.getBoolean("enabled");
+			host = config.getString("host");
+			port = config.getInt("port");
+			database = config.getString("database");
+			username = config.getString("username");
+			password = config.getString("password");
+			ssl = config.getBoolean("ssl");
+			connectionString = config.getString("connectionString");
+			tables = (Map) config.getConfigurationSection("tables").getValues(false);
+		}
+
+		@Override
+		public boolean enabled() {
+			return enabled;
+		}
+
+		@Override
+		public String host() {
+			return host;
+		}
+
+		@Override
+		public int port() {
+			return port;
+		}
+
+		@Override
+		public String databaseName() {
+			return database;
+		}
+
+		@Override
+		public String username() {
+			return username;
+		}
+
+		@Override
+		public String password() {
+			return password;
+		}
+
+		@Override
+		public boolean sslEnabled() {
+			return ssl;
+		}
+
+		@Override
+		public String connectionString() {
+			return connectionString;
+		}
+
+		@Override
+		public Map<String, String> tables() {
+			return tables;
+		}
+	}
+
+	public class DialogsConfig implements QuestsConfiguration.Dialogs {
+
+		private boolean inActionBar = false;
+		private int defaultTime = 100;
+		private boolean defaultSkippable = true;
+		private boolean disableClick = false;
+		private boolean history = true;
+		private int maxMessagesPerHistoryPage = -1;
+		private int maxDistance = 15, maxDistanceSquared = 15 * 15;
+
+		private String defaultPlayerSound = null;
+		private String defaultNPCSound = null;
+
+		private ConfigurationSection config;
+
+		private DialogsConfig(ConfigurationSection config) {
+			this.config = config;
+		}
+
+		private boolean update() {
+			boolean result = false;
+			if (config.getParent() != null) {
+				result |= migrateEntry(config.getParent(), "dialogsInActionBar", config, "inActionBar");
+				result |= migrateEntry(config.getParent(), "dialogsDefaultTime", config, "defaultTime");
+				result |= migrateEntry(config.getParent(), "disableDialogClick", config, "disableClick");
+				result |= migrateEntry(config.getParent(), "dialogHistory", config, "history");
+			}
+			return result;
+		}
+
+		private void init() {
+			inActionBar = config.getBoolean("inActionBar");
+			defaultTime = config.getInt("defaultTime");
+			defaultSkippable = config.getBoolean("defaultSkippable");
+			disableClick = config.getBoolean("disableClick");
+			history = config.getBoolean("history");
+			maxMessagesPerHistoryPage = config.getInt("max messages per history page");
+			maxDistance = config.getInt("maxDistance");
+			maxDistanceSquared = maxDistance <= 0 ? 0 : (maxDistance * maxDistance);
+
+			defaultPlayerSound = config.getString("defaultPlayerSound");
+			defaultNPCSound = config.getString("defaultNPCSound");
+		}
+
+		@Override
+		public boolean sendInActionBar() {
+			return inActionBar;
+		}
+
+		@Override
+		public int getDefaultTime() {
+			return defaultTime;
+		}
+
+		@Override
+		public boolean isSkippableByDefault() {
+			return defaultSkippable;
+		}
+
+		@Override
+		public boolean isClickDisabled() {
+			return disableClick;
+		}
+
+		@Override
+		public boolean isHistoryEnabled() {
+			return history;
+		}
+
+		@Override
+		public int getMaxMessagesPerHistoryPage() {
+			return maxMessagesPerHistoryPage;
+		}
+
+		@Override
+		public int getMaxDistance() {
+			return maxDistance;
+		}
+
+		@Override
+		public int getMaxDistanceSquared() {
+			return maxDistanceSquared;
+		}
+
+		@Override
+		public String getDefaultPlayerSound() {
+			return defaultPlayerSound;
+		}
+
+		@Override
+		public String getDefaultNPCSound() {
+			return defaultNPCSound;
+		}
+
+	}
+
+	public class GuiConfig implements QuestsConfiguration.Gui {
+
+		private ItemStack previousPageItem;
+		private ItemStack nextPageItem;
+		private boolean verticalSeparator;
+		private boolean hideFolderIfSingleCategory;
+
+		private final ConfigurationSection config;
+
+		private GuiConfig(ConfigurationSection config) {
+			this.config = config;
+		}
+
+		private boolean update() {
+			boolean result = false;
+			if (config.getParent() != null) {
+				result |= migrateEntry(config.getParent(), "pageItem", config, "previous page item");
+
+				if (config.get("next page item", null) == null) // just like config.contains(..., true) but for 1.8
+					config.set("next page item", config.get("previous page item"));
+			}
+			return result;
+		}
+
+		private void init() {
+			previousPageItem = loadItem(config, "previous page item", XMaterial.ARROW.parseItem());
+			nextPageItem = loadItem(config, "next page item", XMaterial.ARROW.parseItem());
+			verticalSeparator = config.getBoolean("vertical separator");
+			hideFolderIfSingleCategory = config.getBoolean("hide folder if single category");
+		}
+
+		@Override
+		public ItemStack getPreviousPageItem() {
+			return previousPageItem;
+		}
+
+		@Override
+		public ItemStack getNextPageItem() {
+			return nextPageItem;
+		}
+
+		@Override
+		public boolean showVerticalSeparator() {
+			return verticalSeparator;
+		}
+
+		@Override
+		public boolean hideFolderIfSingleCategory() {
+			return hideFolderIfSingleCategory;
+		}
+
+	}
+
+	public class QuestsSelectionConfig implements QuestsConfiguration.QuestsSelection {
+
+		private boolean skipGuiIfOnlyOneQuest = true;
+		private boolean hideNoRequirements = true;
+
+		private final ConfigurationSection config;
+
+		private QuestsSelectionConfig(ConfigurationSection config) {
+			this.config = config;
+		}
+
+		private boolean update() {
+			boolean result = false;
+			if (config.getParent() != null) {
+				result |= migrateEntry(config.getParent(), "skip npc gui if only one quest", config,
+						"skip gui if only one quest");
+			}
+			return result;
+		}
+
+		private void init() {
+			skipGuiIfOnlyOneQuest = config.getBoolean("skip gui if only one quest");
+			hideNoRequirements = config.getBoolean("hide quests without requirement");
+		}
+
+		@Override
+		public boolean skipGuiIfOnlyOneQuest() {
+			return skipGuiIfOnlyOneQuest;
+		}
+
+		@Override
+		public boolean hideNoRequirements() {
+			return hideNoRequirements;
+		}
+
+	}
+
+	public class QuestsMenuConfig implements QuestsConfiguration.QuestsMenu {
+
+		private Set<PlayerListCategory> tabs;
+		private boolean openNotStartedTabWhenEmpty = true;
+		private boolean allowPlayerCancelQuest = true;
+		private boolean keepMenuOpen = false;
+		private boolean categorizeQuestsByPools = true;
+
+		private ConfigurationSection config;
+
+		private QuestsMenuConfig(ConfigurationSection config) {
+			this.config = config;
+		}
+
+		private boolean update() {
+			boolean result = false;
+			if (config.getParent() != null) {
+				result |= migrateEntry(config.getParent(), "menuOpenNotStartedTabWhenEmpty", config, "openNotStartedTabWhenEmpty");
+				result |= migrateEntry(config.getParent(), "allowPlayerCancelQuest", config, "allowPlayerCancelQuest");
+			}
+			if (config.contains("enabledTabs")) {
+				Set<PlayerListCategory> tabs = config.getStringList("enabledTabs").stream()
+						.map(PlayerListCategory::fromString).collect(Collectors.toSet());
+				for (PlayerListCategory cat : PlayerListCategory.values()) {
+					config.set("tabs." + cat.name().toLowerCase().replace('_', ' ') + ".enabled", tabs.contains(cat));
+				}
+				result = true;
+			}
+			return result;
+		}
+
+		private void init() {
+			tabs = EnumSet.noneOf(PlayerListCategory.class);
+			for (PlayerListCategory cat : PlayerListCategory.values()) {
+				ConfigurationSection catConfig =
+						config.getConfigurationSection("tabs." + cat.name().toLowerCase().replace('_', ' '));
+				cat.setIcon(loadItem(catConfig, "icon", XMaterial.BARRIER.parseItem()));
+				cat.setColor(DyeColor.valueOf(catConfig.getString("color").toUpperCase()));
+				if (catConfig.getBoolean("enabled"))
+					tabs.add(cat);
+			}
+
+			if (tabs.isEmpty()) {
+				LOGGER.warning("Quests Menu must have at least one enabled tab.");
+				tabs = EnumSet.allOf(PlayerListCategory.class);
+			}
+			openNotStartedTabWhenEmpty = config.getBoolean("openNotStartedTabWhenEmpty");
+			allowPlayerCancelQuest = config.getBoolean("allowPlayerCancelQuest");
+			keepMenuOpen = config.getBoolean("keep menu open");
+			categorizeQuestsByPools = config.getBoolean("categorize quests by pools");
+		}
+
+		@Override
+		public boolean isNotStartedTabOpenedWhenEmpty() {
+			return openNotStartedTabWhenEmpty;
+		}
+
+		@Override
+		public boolean allowPlayerCancelQuest() {
+			return allowPlayerCancelQuest;
+		}
+
+		@Override
+		public Set<PlayerListCategory> getEnabledTabs() {
+			return tabs;
+		}
+
+		@Override
+		public boolean keepMenuOpen() {
+			return keepMenuOpen;
+		}
+
+		@Override
+		public boolean categorizeQuestsByPools() {
+			return categorizeQuestsByPools;
+		}
+
+	}
+
+	public class StageDescriptionConfig implements QuestsConfiguration.StageDescription {
+
+		private String itemSingleFormat, itemMultipleFormat;
+		private String stageDescriptionFormat;
+		private String descPrefix = "{nl}§e- §6";
+		private boolean inlineAlone = true;
+		private Set<DescriptionSource> descSources = EnumSet.noneOf(DescriptionSource.class);
+		private boolean bossBars = true;
+		private String bossBarFormat;
+		private int bossBarTimeout = 15;
+		private boolean showOnJoin = true;
+
+		private final ConfigurationSection config;
+
+		public StageDescriptionConfig(ConfigurationSection config) {
+			this.config = config;
+		}
+
+		private void init() {
+			itemSingleFormat = config.getString("item formats.single");
+			itemMultipleFormat = config.getString("item formats.multiple");
+			stageDescriptionFormat = config.getString("description format");
+			descPrefix = "{nl}" + config.getString("line prefix");
+			inlineAlone = config.getBoolean("inline alone");
+			for (String s : config.getStringList("split sources")) {
+				try {
+					descSources.add(DescriptionSource.valueOf(s));
+				} catch (IllegalArgumentException ex) {
+					LOGGER.warning("Loading of description splitted sources failed: source {0} does not exist", s);
+				}
+			}
+			bossBars = config.getBoolean("boss bars");
+			bossBarFormat = config.getString("boss bar format");
+			bossBarTimeout = config.getInt("boss bar timeout");
+			showOnJoin = config.getBoolean("show progress bars on join");
+		}
+
+		private boolean update() {
+			boolean result = false;
+
+			ConfigurationSection oldConfig = config.getParent().getConfigurationSection("stageDescriptionItemsSplit");
+
+			result |= migrateEntry(config.getParent(), "stageDescriptionFormat", config, "description format");
+			if (oldConfig != null) {
+				migrateEntry(oldConfig, "prefix", config, "line prefix");
+				migrateEntry(oldConfig, "sources", config, "split sources");
+				migrateEntry(oldConfig, "inlineAlone", config, "inline alone");
+
+				String amountFormat = oldConfig.getString("amountFormat");
+				boolean showXOne = oldConfig.getBoolean("showXOne");
+				String itemNameColor = config.getParent().getString("itemNameColor");
+				String itemAmountColor = config.getParent().getString("itemAmountColor");
+
+				String multipleFormat = itemNameColor + "{name}" + itemAmountColor + " " + amountFormat;
+				String singleFormat = showXOne ? multipleFormat : (itemNameColor + "{name}");
+				config.set("item formats.multiple", multipleFormat);
+				config.set("item formats.single", singleFormat);
+
+				config.getParent().set("itemNameColor", null);
+				config.getParent().set("itemAmountColor", null);
+				config.getParent().set("stageDescriptionItemsSplit", null);
+
+				result = true;
+			}
+
+			result |= migrateEntry(config.getParent(), "mobsProgressBar", config, "boss bars");
+			result |= migrateEntry(config.getParent(), "progressBarTimeoutSeconds", config, "boss bar timeout");
+
+			return result;
+		}
+
+		@Override
+		public String getStageDescriptionFormat() {
+			return stageDescriptionFormat;
+		}
+
+		@Override
+		public @NotNull String getSingleItemFormat() {
+			return itemSingleFormat;
+		}
+
+		@Override
+		public @NotNull String getMultipleItemsFormat() {
+			return itemMultipleFormat;
+		}
+
+		@Override
+		public String getSplitPrefix() {
+			return descPrefix;
+		}
+
+		@Override
+		public boolean isAloneSplitInlined() {
+			return inlineAlone;
+		}
+
+		@Override
+		public Set<DescriptionSource> getSplitSources() {
+			return descSources;
+		}
+
+		@Override
+		public boolean areBossBarsEnabled() {
+			return bossBars;
+		}
+
+		@Override
+		public String getBossBarFormat() {
+			return bossBarFormat;
+		}
+
+		@Override
+		public int getBossBarTimeout() {
+			return bossBarTimeout;
+		}
+
+		@Override
+		public boolean showOnJoin() {
+			return showOnJoin;
+		}
+
+	}
+
+	public class QuestDescriptionConfig implements QuestDescription {
+
+		private boolean requirements;
+		private String requirementsValid;
+		private String requirementsInvalid;
+
+		private boolean rewards;
+		private String rewardsFormat;
+
+		private final ConfigurationSection config;
+
+		public QuestDescriptionConfig(ConfigurationSection config) {
+			this.config = config;
+		}
+
+		private void init() {
+			requirements = config.getBoolean("requirements.display");
+			requirementsValid = config.getString("requirements.valid");
+			requirementsInvalid = config.getString("requirements.invalid");
+
+			rewards = config.getBoolean("rewards.display");
+			rewardsFormat = config.getString("rewards.format");
+		}
+
+		@Override
+		public boolean showRewards() {
+			return rewards;
+		}
+
+		@Override
+		public String getRewardsFormat() {
+			return rewardsFormat;
+		}
+
+		@Override
+		public boolean showRequirements() {
+			return requirements;
+		}
+
+		@Override
+		public String getRequirementsValid() {
+			return requirementsValid;
+		}
+
+		@Override
+		public String getRequirementsInvalid() {
+			return requirementsInvalid;
+		}
+
+	}
+
+	public record HologramsConfig(@Nullable String preferredPlugin, boolean disableTextHologram, double additionalHeight,
+			@Nullable ItemStack launchItem, @Nullable ItemStack cannotLaunchItem, @Nullable ItemStack talkItem,
+			boolean customItemName) implements Holograms {
+
+		static HologramsConfig load(@NotNull QuestsConfigurationImplementation questsConfig,
+				@NotNull ConfigurationSection config) {
+			return new HologramsConfig(
+					config.getString("preferred plugin"), config.getBoolean("disable text hologram"),
+					config.getDouble("additional height"),
+					loadHologramItem(questsConfig, config, "launchItem", "launch item"),
+					loadHologramItem(questsConfig, config, "noLaunchItem", "cannot launch item"),
+					loadHologramItem(questsConfig, config, "talkItem", "talk item"),
+					config.getBoolean("custom item name"));
+		}
+
+		static boolean update(@NotNull ConfigurationSection config) {
+			boolean result = false;
+			if (config.getParent() != null) {
+				result |= migrateEntry(config.getParent(), "disableTextHologram", config, "disable text hologram");
+				result |= migrateEntry(config.getParent(), "hologramsHeight", config, "additional height");
+				result |= migrateEntry(config.getParent(), "holoLaunchItemName", config, "launch item");
+				result |= migrateEntry(config.getParent(), "holoTalkItemName", config, "talk item");
+				result |= migrateEntry(config.getParent(), "showCustomHologramName", config, "custom item name");
+			}
+			return result;
+		}
+
+		private static ItemStack loadHologramItem(QuestsConfigurationImplementation questsConfig,
+				ConfigurationSection config, String dataName, String configName) {
+			if (questsConfig.dataFile.contains(dataName)) {
+				return ItemStack.deserialize(questsConfig.dataFile.getConfigurationSection(dataName).getValues(false));
+			}
+			return loadItem(config, configName, null);
+		}
+
+	}
+
+}

@@ -1,0 +1,386 @@
+package fr.skytasul.quests.structure;
+
+import fr.skytasul.quests.BeautyQuests;
+import fr.skytasul.quests.QuestsConfigurationImplementation;
+import fr.skytasul.quests.api.QuestsConfiguration;
+import fr.skytasul.quests.api.QuestsPlugin;
+import fr.skytasul.quests.api.data.DataLoadingException;
+import fr.skytasul.quests.api.data.DataSavingException;
+import fr.skytasul.quests.api.localization.Lang;
+import fr.skytasul.quests.api.options.description.DescriptionSource;
+import fr.skytasul.quests.api.questers.Quester;
+import fr.skytasul.quests.api.questers.data.QuesterQuestData;
+import fr.skytasul.quests.api.quests.branches.EndingStage;
+import fr.skytasul.quests.api.quests.branches.QuestBranch;
+import fr.skytasul.quests.api.quests.events.questers.QuesterSetStageEvent;
+import fr.skytasul.quests.api.requirements.Actionnable;
+import fr.skytasul.quests.api.stages.StageController;
+import fr.skytasul.quests.api.stages.StageIndex;
+import fr.skytasul.quests.api.utils.messaging.MessageUtils;
+import fr.skytasul.quests.api.utils.messaging.PlaceholderRegistry;
+import fr.skytasul.quests.players.AdminMode;
+import fr.skytasul.quests.utils.QuestUtils;
+import org.apache.commons.lang.Validate;
+import org.bukkit.Bukkit;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.UnmodifiableView;
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class QuestBranchImplementation implements QuestBranch {
+
+	private final List<EndingStageImplementation> endStages = new ArrayList<>(5);
+	private final List<StageControllerImplementation> regularStages = new ArrayList<>(15);
+
+	private final @NotNull BranchesManagerImplementation manager;
+
+	public QuestBranchImplementation(@NotNull BranchesManagerImplementation manager) {
+		this.manager = manager;
+	}
+
+	@Override
+	public @NotNull QuestImplementation getQuest() {
+		return manager.getQuest();
+	}
+
+	@Override
+	public @NotNull BranchesManagerImplementation getManager() {
+		return manager;
+	}
+
+	public int getStageSize(){
+		return regularStages.size();
+	}
+
+	@Override
+	public int getId() {
+		return manager.getId(this);
+	}
+
+	public void addRegularStage(@NotNull StageControllerImplementation<?> stage) {
+		Validate.notNull(stage, "Stage cannot be null !");
+		regularStages.add(stage);
+	}
+
+	public void addEndStage(@NotNull StageControllerImplementation<?> stage, @Nullable QuestBranchImplementation linked) {
+		Validate.notNull(stage, "Stage cannot be null !");
+		endStages.add(new EndingStageImplementation(stage, linked));
+	}
+
+	@Override
+	public @NotNull @UnmodifiableView List<@NotNull StageController> getRegularStages() {
+		return (List) regularStages;
+	}
+
+	@Override
+	public @NotNull StageControllerImplementation<?> getRegularStage(int id) {
+		return regularStages.get(id);
+	}
+
+	@Override
+	public @NotNull @UnmodifiableView List<EndingStage> getEndingStages() {
+		return (List) endStages;
+	}
+
+	@Override
+	public @NotNull StageController getEndingStage(int id) {
+		return endStages.get(id).getStage(); // TODO beware index out of bounds
+	}
+
+	public @Nullable QuestBranchImplementation getLinkedBranch(@NotNull StageController endingStage) {
+		return endStages.stream().filter(end -> end.getStage().equals(endingStage)).findAny().get().getBranch();
+	}
+
+	public @NotNull StageIndex getStageIndex(@NotNull StageController stage) {
+		if (regularStages.contains(stage))
+			return new StageIndex.RegularStageIndex(getId(), regularStages.indexOf(stage));
+		if (isEndingStage(stage))
+			return new StageIndex.EndingStageIndex(getId(), getEndingStageId(stage));
+		throw new IllegalArgumentException("Stage was not a part of the branch");
+	}
+
+	public int getRegularStageId(StageController stage) {
+		if (!regularStages.contains(stage))
+			throw new IllegalArgumentException("Stage is not a part of the branch");
+		return regularStages.indexOf(stage);
+	}
+
+	public int getEndingStageId(StageController stage) {
+		for (int i = 0; i < endStages.size(); i++) {
+			EndingStage endingStage = endStages.get(i);
+			if (endingStage.getStage().equals(stage))
+				return i;
+		}
+		throw new IllegalArgumentException("Stage is not a part of the branch");
+	}
+
+	public boolean isEndingStage(StageController stage) {
+		return endStages.stream().anyMatch(end -> end.getStage().equals(stage));
+	}
+
+	private boolean isInAsyncReward(@NotNull Quester quester) {
+		return regularStages.stream().anyMatch(x -> x.getStage().getRewards().isInAsyncReward(quester))
+				|| endStages.stream().anyMatch(x -> x.getStage().getStage().getRewards().isInAsyncReward(quester));
+	}
+
+	@Override
+	public @NotNull String getDescriptionLine(@NotNull Quester quester, @NotNull DescriptionSource source) {
+		QuesterQuestData data = quester.getDataHolder().getQuestDataIfPresent(getQuest())
+				.filter(x -> x.getBranch().orElse(-1) == getId())
+				.orElseThrow(() -> new IllegalArgumentException("Account does not have this branch launched"));
+		if (isInAsyncReward(quester))
+			return Lang.SCOREBOARD_ASYNC_END.toString();
+		if (isInStageEnd(data)) {
+			return endStages.stream()
+					.map(stage -> stage.getStage().getDescriptionLine(quester, source))
+					.filter(Objects::nonNull)
+					.collect(Collectors.joining("{nl}" + Lang.SCOREBOARD_BETWEEN_BRANCHES + " {nl}"));
+		}
+		if (data.getStage().isEmpty())
+			return "§cerror: no stage set for branch " + getId();
+		if (data.getStage().getAsInt() >= regularStages.size())
+			return "§cerror: datas do not match";
+
+		String descriptionLine = regularStages.get(data.getStage().getAsInt()).getDescriptionLine(quester, source);
+		return MessageUtils.format(QuestsConfiguration.getConfig().getStageDescriptionConfig().getStageDescriptionFormat(),
+				PlaceholderRegistry.of("stage_index", data.getStage().getAsInt() + 1, "stage_amount", regularStages.size(),
+						"stage_description", descriptionLine == null ? "" : descriptionLine));
+	}
+
+	@Override
+	public boolean hasStageLaunched(@Nullable Quester quester, @NotNull StageController stage) {
+		if (quester == null)
+			return false;
+
+		if (isInAsyncReward(quester))
+			return false;
+
+		var dataOpt = quester.getDataHolder().getQuestDataIfPresent(getQuest());
+		if (dataOpt.isEmpty())
+			return false;
+
+		QuesterQuestData data = dataOpt.get();
+		if (data.getBranch().isEmpty() || data.getBranch().getAsInt() != getId())
+			return false;
+
+		if (isEndingStage(stage))
+			return isInStageEnd(data);
+
+		return getRegularStageId(stage) == data.getStage().orElse(-1);
+	}
+
+	public void remove(@NotNull Quester acc, boolean end) {
+		var dataOpt = acc.getDataHolder().getQuestDataIfPresent(getQuest());
+		if (dataOpt.isEmpty())
+			return;
+
+		QuesterQuestData data = dataOpt.get();
+		if (end) {
+			if (data.getState() == QuesterQuestData.State.IN_ENDING_STAGES) {
+				endStages.forEach(x -> x.getStage().end(acc));
+			} else if (data.getStage().isPresent() && data.getStage().getAsInt() < regularStages.size())
+				getRegularStage(data.getStage().getAsInt()).end(acc);
+		}
+		data.setBranch(OptionalInt.empty());
+		data.setStage(OptionalInt.empty());
+	}
+
+	public void start(@NotNull Quester acc) {
+		acc.getDataHolder().getQuestData(getQuest()).setBranch(OptionalInt.of(getId()));
+		if (!regularStages.isEmpty()){
+			setPlayerStage(acc, regularStages.get(0));
+		}else {
+			setPlayerEndingStages(acc);
+		}
+	}
+
+	@Override
+	public void finishPlayerStage(@NotNull Quester quester, @NotNull StageController stage) {
+		QuestsPlugin.getPlugin().getLoggerExpanded().debug("Next stage for {} (coming from {})", quester.getDetailedName(),
+				stage);
+		QuesterQuestData datas = quester.getDataHolder().getQuestData(getQuest());
+		if (datas.getBranch().orElse(-1) != getId()
+				|| (isInStageEnd(datas) && !isEndingStage(stage))
+				|| (!isInStageEnd(datas) && datas.getStage().orElse(-1) != getRegularStageId(stage))) {
+			QuestsPlugin.getPlugin().getLoggerExpanded().warning(
+					"Trying to finish stage {} for {} but was not in progress.", stage, quester.getDetailedName());
+			return;
+		}
+
+		AdminMode.broadcast("Quester " + quester.getFriendlyName() + " has finished the stage "
+				+ stage.getIndex() + " of quest " + getQuest().getId());
+		datas.addQuestFlow(stage);
+		if (isEndingStage(stage)) { // ending stage
+			for (EndingStageImplementation end : endStages) {
+				if (end.getStage() != stage)
+					end.getStage().end(quester);
+			}
+		}
+		datas.setStage(OptionalInt.empty());
+		endStage(quester, (StageControllerImplementation<?>) stage, () -> {
+			if (!manager.getQuest().hasStarted(quester))
+				return;
+			if (regularStages.contains(stage)){ // not ending stage - continue the branch or finish the quest
+				int newId = getRegularStageId(stage) + 1;
+				if (newId == regularStages.size()){
+					if (endStages.isEmpty()){
+						remove(quester, false);
+						getQuest().finish(quester);
+						return;
+					}
+					setPlayerEndingStages(quester);
+				}else {
+					setPlayerStage(quester, regularStages.get(newId));
+				}
+			}else { // ending stage - redirect to other branch
+				remove(quester, false);
+				QuestBranchImplementation branch = getLinkedBranch(stage);
+				if (branch == null){
+					getQuest().finish(quester);
+					return;
+				}
+				branch.start(quester);
+			}
+			manager.questUpdated(quester);
+		});
+	}
+
+	private void endStage(@NotNull Quester quester, @NotNull StageControllerImplementation<?> stage,
+			@NotNull Runnable runAfter) {
+		stage.end(quester);
+		stage.getStage().getValidationRequirements().stream().filter(Actionnable.class::isInstance)
+				.map(Actionnable.class::cast).forEach(x -> quester.getOnlinePlayers().forEach(x::trigger));
+
+		stage.getStage().getRewards().giveRewards(quester)
+				.whenComplete(BeautyQuests.getInstance().getLoggerExpanded().logError(rewardsResult -> {
+					if (rewardsResult.branchInterruption()) {
+						QuestsPlugin.getPlugin().getLoggerExpanded().debug("Interrupted branching in async stage end for {}",
+								quester.getDetailedName());
+						return;
+					}
+
+					if (QuestsConfiguration.getConfig().getQuestsConfig().stageEndRewardsMessage())
+						rewardsResult.earnings()
+								.forEach((player, earnings) -> Lang.FINISHED_OBTAIN.quickSend(player, "rewards",
+										MessageUtils.itemsToFormattedString(earnings.toArray(new String[0]))));
+
+					QuestUtils.runOrSync(runAfter);
+				}, "failed to give rewards", quester));
+	}
+
+	@Override
+	public void setPlayerStage(@NotNull Quester quester, @NotNull StageController stage) {
+		QuesterQuestData questDatas = quester.getDataHolder().getQuestData(getQuest());
+		if (questDatas.getBranch().getAsInt() != getId())
+			throw new IllegalStateException("The player is not in the right branch");
+
+		if (QuestsConfiguration.getConfig().getQuestsConfig().playerQuestUpdateMessage()
+				&& questDatas.getStage().isPresent()) // means the player was previously in a stage
+			Lang.QUEST_UPDATED.send(quester, getQuest());
+		questDatas.setState(QuesterQuestData.State.IN_REGULAR_STAGE);
+		questDatas.setStage(OptionalInt.of(getRegularStageId(stage)));
+		quester.getOnlinePlayers().forEach(this::playNextStage);
+		((StageControllerImplementation<?>) stage).start(quester);
+		Bukkit.getPluginManager().callEvent(new QuesterSetStageEvent(quester, getQuest(), stage));
+	}
+
+	@Override
+	public void setPlayerEndingStages(@NotNull Quester quester) {
+		QuesterQuestData datas = quester.getDataHolder().getQuestData(getQuest());
+		if (datas.getBranch().getAsInt() != getId())
+			throw new IllegalStateException("The player is not in the right branch");
+
+		if (QuestsConfiguration.getConfig().getQuestsConfig().playerQuestUpdateMessage())
+			Lang.QUEST_UPDATED.send(quester, getQuest());
+		datas.setState(QuesterQuestData.State.IN_ENDING_STAGES);
+		for (EndingStageImplementation endStage : endStages) {
+			endStage.getStage().start(quester);
+			Bukkit.getPluginManager().callEvent(new QuesterSetStageEvent(quester, getQuest(), endStage.getStage()));
+		}
+		quester.getOnlinePlayers().forEach(this::playNextStage);
+	}
+
+	private void playNextStage(@NotNull Player p) {
+		QuestUtils.playPluginSound(p.getLocation(), QuestsConfiguration.getConfig().getQuestsConfig().nextStageSound(),
+				0.5F);
+		if (QuestsConfigurationImplementation.getConfiguration().showNextParticles())
+			QuestsConfigurationImplementation.getConfiguration().getParticleNext().send(p, Arrays.asList(p));
+	}
+
+	private boolean isInStageEnd(@NotNull QuesterQuestData data) {
+		return data.getState() == QuesterQuestData.State.IN_ENDING_STAGES;
+	}
+
+	public void loadStages() {
+		regularStages.forEach(StageControllerImplementation::load);
+		endStages.forEach(end -> end.getStage().load());
+	}
+
+	public void remove(){
+		regularStages.forEach(StageControllerImplementation::unload);
+		regularStages.clear();
+		endStages.forEach(end -> end.getStage().unload());
+		endStages.clear();
+	}
+
+	public void save(@NotNull ConfigurationSection section) throws DataSavingException {
+		ConfigurationSection stagesSection = section.createSection("stages");
+		for (int i = 0; i < regularStages.size(); i++) {
+			try {
+				regularStages.get(i).getStage().save(stagesSection.createSection(Integer.toString(i)));
+			}catch (Exception ex) {
+				throw new DataSavingException("Failed to serialize the stage " + i, ex);
+			}
+		}
+
+		ConfigurationSection endSection = section.createSection("endingStages");
+		for (int i = 0; i < endStages.size(); i++) {
+			EndingStageImplementation en = endStages.get(i);
+			try{
+				ConfigurationSection stageSection = endSection.createSection(Integer.toString(i));
+				en.getStage().getStage().save(stageSection);
+				QuestBranchImplementation branchLinked = en.getBranch();
+				if (branchLinked != null)
+					stageSection.set("branchLinked", branchLinked.getId());
+			}catch (Exception ex){
+				throw new DataSavingException("Failed to serialize the ending stage " + i, ex);
+			}
+		}
+	}
+
+	@Override
+	public String toString() {
+		return "QuestBranch{regularStages=" + regularStages.size() + ",endingStages=" + endStages.size() + "}";
+	}
+
+	public void load(@NotNull ConfigurationSection section) throws DataLoadingException {
+		ConfigurationSection stagesSection = section.getConfigurationSection("stages");
+
+		for (int id : stagesSection.getKeys(false).stream().map(Integer::parseInt).sorted().collect(Collectors.toSet())) {
+			try{
+				addRegularStage(StageControllerImplementation.loadFromConfig(this,
+						stagesSection.getConfigurationSection(Integer.toString(id))));
+			}catch (Exception ex){
+				throw new DataLoadingException("Error when deserializing the stage " + id, ex);
+			}
+		}
+
+		ConfigurationSection endingStagesSection = section.getConfigurationSection("endingStages");
+
+		if (endingStagesSection != null) {
+			for (String key : endingStagesSection.getKeys(false)) {
+				try{
+					ConfigurationSection stage = endingStagesSection.getConfigurationSection(key);
+					QuestBranchImplementation branchLinked = stage.contains("branchLinked") ? manager.getBranch(stage.getInt("branchLinked")) : null;
+					addEndStage(StageControllerImplementation.loadFromConfig(this, stage), branchLinked);
+				}catch (Exception ex){
+					throw new DataLoadingException("Error when deserializing the ending stage " + key, ex);
+				}
+			}
+		}
+	}
+
+}

@@ -1,0 +1,322 @@
+package fr.skytasul.quests.stages;
+
+import com.cryptomorin.xseries.XMaterial;
+import fr.skytasul.quests.BeautyQuests;
+import fr.skytasul.quests.api.QuestsPlugin;
+import fr.skytasul.quests.api.editors.parsers.DurationParser.MinecraftTimeUnit;
+import fr.skytasul.quests.api.gui.ItemUtils;
+import fr.skytasul.quests.api.localization.Lang;
+import fr.skytasul.quests.api.options.QuestOption;
+import fr.skytasul.quests.api.players.PlayerManager;
+import fr.skytasul.quests.api.questers.Quester;
+import fr.skytasul.quests.api.requirements.RequirementList;
+import fr.skytasul.quests.api.stages.AbstractStage;
+import fr.skytasul.quests.api.stages.StageController;
+import fr.skytasul.quests.api.stages.StageDescriptionPlaceholdersContext;
+import fr.skytasul.quests.api.stages.creation.StageCreation;
+import fr.skytasul.quests.api.stages.creation.StageCreationContext;
+import fr.skytasul.quests.api.stages.creation.StageGuiLine;
+import fr.skytasul.quests.api.utils.Utils;
+import fr.skytasul.quests.api.utils.messaging.PlaceholderRegistry;
+import fr.skytasul.quests.api.utils.messaging.PlaceholdersContext.QuesterPlaceholdersContext;
+import fr.skytasul.quests.api.utils.progress.HasProgress;
+import fr.skytasul.quests.api.utils.progress.ProgressPlaceholders;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
+import org.jetbrains.annotations.NotNull;
+import java.util.*;
+
+public class StagePlayTime extends AbstractStage implements HasProgress {
+
+	private final long playTicks;
+	private final TimeMode timeMode;
+
+	private Map<Player, BukkitTask> tasks = new HashMap<>();
+
+	private Set<Quester> runningQuesters = new HashSet<>();
+	private BukkitTask refreshTask;
+
+	public StagePlayTime(StageController controller, long ticks, TimeMode timeMode) {
+		super(controller);
+		this.playTicks = ticks;
+		this.timeMode = timeMode;
+	}
+
+	public long getTicksToPlay() {
+		return playTicks;
+	}
+
+	@Override
+	public @NotNull String getDefaultDescription(@NotNull StageDescriptionPlaceholdersContext context) {
+		return Lang.SCOREBOARD_PLAY_TIME.toString();
+	}
+
+	@Override
+	protected void createdPlaceholdersRegistry(@NotNull PlaceholderRegistry placeholders) {
+		super.createdPlaceholdersRegistry(placeholders);
+		placeholders.registerIndexedContextual("time_remaining_human", QuesterPlaceholdersContext.class,
+				context -> Utils.millisToHumanString(getRemainingAmount(context.getQuester())));
+		ProgressPlaceholders.registerProgress(placeholders, "time", this);
+	}
+
+	private long getRemaining(Quester acc) {
+		switch (timeMode) {
+			case ONLINE:
+				long remaining = getData(acc, "remainingTime", Long.class);
+				long lastJoin = getData(acc, "lastJoin", Long.class);
+				long playedTicks = (System.currentTimeMillis() - lastJoin) / 50;
+				return remaining - playedTicks;
+			case OFFLINE:
+				World world = Bukkit.getWorld(getData(acc, "worldUuid", UUID.class));
+				if (world == null) {
+					QuestsPlugin.getPlugin().getLoggerExpanded().namedWarning(
+							"Cannot get remaining time of {} for {} because the world has changed.",
+							acc.getIdentifier() + hashCode() + "time", 15, acc.getFriendlyName(), controller);
+					return -1;
+				}
+
+				long startTime = getData(acc, "worldStartTime", Long.class);
+				long elapsedTicks = world.getGameTime() - startTime;
+				return playTicks - elapsedTicks;
+			case REALTIME:
+				startTime = getData(acc, "startTime", Long.class);
+				elapsedTicks = (System.currentTimeMillis() - startTime) / 50;
+				return playTicks - elapsedTicks;
+		}
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public long getRemainingAmount(@NotNull Quester quester) {
+		return getRemaining(quester) * 50L;
+	}
+
+	@Override
+	public long getTotalAmount() {
+		return playTicks * 50L;
+	}
+
+	private void cancelTask(Player p, BukkitTask task) {
+		task.cancel();
+		if (timeMode == TimeMode.ONLINE) {
+			var quester = PlayerManager.getPlayerAccount(p);
+			updateObjective(quester, "remainingTime", getRemaining(quester));
+		}
+	}
+
+	private void launchTask(Player p, long remaining) {
+		tasks.put(p,
+				Bukkit.getScheduler().runTaskLater(BeautyQuests.getInstance(),
+						() -> controller.getApplicableQuesters(p).forEach(this::finishStage),
+						remaining < 0 ? 0 : remaining));
+	}
+
+	private void launchRefresh(Quester quester) {
+		runningQuesters.add(quester);
+
+		if (refreshTask != null)
+			return;
+
+		refreshTask = Bukkit.getScheduler().runTaskTimerAsynchronously(BeautyQuests.getInstance(), () -> {
+			runningQuesters.forEach(controller::notifyQuesterUpdate);
+		}, 20L, 20L);
+	}
+
+	private void cancelRefresh(Quester quester) {
+		runningQuesters.remove(quester);
+
+		if (runningQuesters.isEmpty() && refreshTask != null) {
+			refreshTask.cancel();
+			refreshTask = null;
+		}
+	}
+
+	@Override
+	public void joined(Player p, Quester quester) {
+		super.joined(p, null);
+		if (timeMode == TimeMode.ONLINE)
+			updateObjective(quester, "lastJoin", System.currentTimeMillis());
+		launchRefresh(quester);
+		launchTask(p, getRemaining(quester));
+	}
+
+	@Override
+	public void left(Player p, Quester quester) {
+		super.left(p, null);
+		BukkitTask task = tasks.remove(p);
+		if (task != null) {
+			cancelTask(p, task);
+		}else {
+			QuestsPlugin.getPlugin().getLoggerExpanded()
+					.warning("Unavailable task in \"Play Time\" stage " + toString() + " for player " + p.getName());
+		}
+		if (quester.getOnlinePlayers().size() == 1)
+			cancelRefresh(quester);
+	}
+
+	@Override
+	public void started(Quester quester) {
+		super.started(quester);
+
+		launchRefresh(quester);
+		quester.getOnlinePlayers().forEach(p -> launchTask(p, playTicks));
+	}
+
+	@Override
+	public void ended(Quester quester) {
+		super.ended(quester);
+
+		cancelRefresh(quester);
+		quester.getOnlinePlayers().forEach(p -> tasks.remove(p).cancel());
+	}
+
+	@Override
+	public void initPlayerDatas(Quester acc, Map<String, Object> datas) {
+		super.initPlayerDatas(acc, datas);
+		switch (timeMode) {
+			case ONLINE:
+				datas.put("remainingTime", playTicks);
+				datas.put("lastJoin", System.currentTimeMillis());
+				break;
+			case OFFLINE:
+				World world = Bukkit.getWorlds().get(0);
+				datas.put("worldStartTime", world.getGameTime());
+				datas.put("worldUuid", world.getUID().toString());
+				break;
+			case REALTIME:
+				datas.put("startTime", System.currentTimeMillis());
+				break;
+		}
+	}
+
+	@Override
+	public void unload() {
+		super.unload();
+		tasks.forEach(this::cancelTask);
+		tasks.clear();
+		if (refreshTask != null) {
+			refreshTask.cancel();
+			refreshTask = null;
+		}
+	}
+
+	@Override
+	public void setValidationRequirements(@NotNull RequirementList validationRequirements) {
+		super.setValidationRequirements(validationRequirements);
+		if (!validationRequirements.isEmpty())
+			QuestsPlugin.getPlugin().getLogger().warning(validationRequirements.size()
+					+ " requirements are set for a \"play time\" stage, but requirements are unsupported for this stage type.\n"
+					+ controller.toString());
+	}
+
+	@Override
+	protected void serialize(ConfigurationSection section) {
+		section.set("playTicks", playTicks);
+		section.set("timeMode", timeMode.name());
+	}
+
+	public static StagePlayTime deserialize(ConfigurationSection section, StageController controller) {
+		return new StagePlayTime(controller, section.getLong("playTicks"),
+				TimeMode.valueOf(section.getString("timeMode", "ONLINE").toUpperCase()));
+	}
+
+	public enum TimeMode {
+		ONLINE(Lang.stagePlayTimeModeOnline.toString()),
+		OFFLINE(Lang.stagePlayTimeModeOffline.toString()),
+		REALTIME(Lang.stagePlayTimeModeRealtime.toString());
+
+		private final String description;
+
+		private TimeMode(String description) {
+			this.description = description;
+		}
+
+		public boolean isActive() {
+			return true;
+		}
+	}
+
+	public static class Creator extends StageCreation<StagePlayTime> {
+
+		private long ticks;
+		private TimeMode timeMode = TimeMode.ONLINE;
+
+		private int slotTicks;
+		private int slotTimeMode;
+
+		public Creator(@NotNull StageCreationContext<StagePlayTime> context) {
+			super(context);
+		}
+
+		@Override
+		public void setupLine(@NotNull StageGuiLine line) {
+			super.setupLine(line);
+
+			line.refreshItemName(SLOT_REQUIREMENTS,
+					"§n" + Lang.validationRequirements + "§c " + Lang.Disabled.toString().toUpperCase());
+
+			slotTicks = line.setItem(7, ItemUtils.item(XMaterial.CLOCK, Lang.changeTicksRequired.toString()), event -> {
+				openTicksEditor(event.getPlayer(), false);
+			});
+
+			slotTimeMode = line.setItem(8,
+							ItemUtils.item(XMaterial.COMMAND_BLOCK, Lang.stagePlayTimeChangeTimeMode.toString(),
+									QuestOption.formatNullableValue(timeMode.description, timeMode == TimeMode.ONLINE)),
+							event -> {
+						TimeMode next = timeMode;
+						do {
+							next = TimeMode.values()[(next.ordinal() + 1) % TimeMode.values().length];
+						} while (!next.isActive());
+						setTimeMode(next);
+					});
+		}
+
+		public void setTicks(long ticks) {
+			this.ticks = ticks;
+			getLine().refreshItemLoreOptionValue(slotTicks, Lang.Ticks.quickFormat("ticks", ticks));
+		}
+
+		public void setTimeMode(TimeMode timeMode) {
+			if (this.timeMode != timeMode) {
+				this.timeMode = timeMode;
+				getLine().refreshItemLore(slotTimeMode,
+						QuestOption.formatNullableValue(timeMode.description, timeMode == TimeMode.ONLINE));
+			}
+		}
+
+		private void openTicksEditor(@NotNull Player player, boolean firstTime) {
+			QuestsPlugin.getPlugin().getEditorManager().getFactory()
+					.createTextEditorBuilderParser(player, MinecraftTimeUnit.TICK.getParser(),
+							firstTime ? context::removeAndReopenGui : context::reopenGui, ticks -> {
+								setTicks(ticks);
+								context.reopenGui();
+							})
+					.setIndication(Lang.GAME_TICKS.toString())
+					.setInitialString(firstTime ? null : Long.toString(ticks))
+					.build().start();
+		}
+
+		@Override
+		public void start(Player p) {
+			super.start(p);
+			openTicksEditor(p, true);
+		}
+
+		@Override
+		public void edit(StagePlayTime stage) {
+			super.edit(stage);
+			setTicks(stage.playTicks);
+			setTimeMode(stage.timeMode);
+		}
+
+		@Override
+		public StagePlayTime finishStage(StageController controller) {
+			return new StagePlayTime(controller, ticks, timeMode);
+		}
+
+	}
+
+}

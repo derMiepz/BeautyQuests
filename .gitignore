@@ -1,0 +1,11 @@
+/bin/
+/doc/
+.classpath
+.project
+*.jardesc
+target/
+.settings/
+/integrations/jars/
+.flattened-pom.xml
+.paper-nms
+.vscode

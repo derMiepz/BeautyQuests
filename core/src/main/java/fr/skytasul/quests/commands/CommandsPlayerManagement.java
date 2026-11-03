@@ -1,0 +1,367 @@
+package fr.skytasul.quests.commands;
+
+import fr.skytasul.quests.BeautyQuests;
+import fr.skytasul.quests.api.QuestsAPI;
+import fr.skytasul.quests.api.QuestsPlugin;
+import fr.skytasul.quests.api.commands.QuesterSelector;
+import fr.skytasul.quests.api.localization.Lang;
+import fr.skytasul.quests.api.npcs.dialogs.DialogRunner;
+import fr.skytasul.quests.api.npcs.dialogs.DialogRunner.DialogNextReason;
+import fr.skytasul.quests.api.players.PlayerManager;
+import fr.skytasul.quests.api.players.PlayerQuester;
+import fr.skytasul.quests.api.questers.Quester;
+import fr.skytasul.quests.api.questers.data.QuesterQuestData;
+import fr.skytasul.quests.api.questers.data.QuesterQuestData.State;
+import fr.skytasul.quests.api.questers.events.QuesterResetEvent;
+import fr.skytasul.quests.api.quests.Quest;
+import fr.skytasul.quests.api.stages.AbstractStage;
+import fr.skytasul.quests.api.stages.types.Dialogable;
+import fr.skytasul.quests.api.utils.messaging.DefaultErrors;
+import fr.skytasul.quests.api.utils.messaging.PlaceholderRegistry;
+import fr.skytasul.quests.gui.quests.PlayerListGUI;
+import fr.skytasul.quests.gui.quests.QuestsListGUI;
+import fr.skytasul.quests.options.OptionStartDialog;
+import fr.skytasul.quests.structure.BranchesManagerImplementation;
+import fr.skytasul.quests.structure.QuestBranchImplementation;
+import fr.skytasul.quests.utils.QuestUtils;
+import org.bukkit.Bukkit;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.permissions.Permission;
+import org.jetbrains.annotations.Nullable;
+import revxrsal.commands.annotation.Optional;
+import revxrsal.commands.annotation.Range;
+import revxrsal.commands.annotation.Subcommand;
+import revxrsal.commands.annotation.Switch;
+import revxrsal.commands.bukkit.actor.BukkitCommandActor;
+import revxrsal.commands.bukkit.annotation.CommandPermission;
+import revxrsal.commands.bukkit.sender.BukkitCommandPermission;
+import revxrsal.commands.command.ExecutableCommand;
+import revxrsal.commands.exception.CommandErrorException;
+import revxrsal.commands.exception.NoPermissionException;
+import revxrsal.commands.orphan.OrphanCommand;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.OptionalInt;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
+public class CommandsPlayerManagement implements OrphanCommand {
+
+	private BukkitCommandPermission startOtherPermission = new BukkitCommandPermission(new Permission("beautyquests.command.start.other"));
+	private BukkitCommandPermission cancelOtherPermission = new BukkitCommandPermission(new Permission("beautyquests.command.cancel.other"));
+
+	@Subcommand ("finishAll")
+	@CommandPermission ("beautyquests.command.finish")
+	public void finishAll(BukkitCommandActor actor, QuesterSelector questers) {
+		for (var quester : questers) {
+			int success = 0;
+			int errors = 0;
+			for (Quest q : QuestsAPI.getAPI().getQuestsManager().getQuestsStarted(quester)) {
+				try {
+					q.finish(quester);
+					success++;
+				}catch (Exception ex) {
+					QuestsPlugin.getPlugin().getLoggerExpanded()
+							.severe("An error occurred while finishing quest " + q.getId(), ex);
+					errors++;
+				}
+			}
+			Lang.LEAVE_ALL_RESULT.send(actor.sender(), PlaceholderRegistry.of("success", success, "errors", errors));
+		}
+	}
+
+	@Subcommand ("finish")
+	@CommandPermission ("beautyquests.command.finish")
+	public void finish(BukkitCommandActor actor, QuesterSelector questers, Quest quest, @Switch boolean force) {
+		for (var quester : questers) {
+			try {
+				if (force || quest.hasStarted(quester)) {
+					quest.finish(quester);
+					Lang.LEAVE_ALL_RESULT.send(actor.sender(), PlaceholderRegistry.of("success", 1, "errors", 0));
+				}
+			}catch (Exception ex) {
+				QuestsPlugin.getPlugin().getLoggerExpanded()
+						.severe("An error occurred while finishing quest " + quest.getId(), ex);
+				Lang.LEAVE_ALL_RESULT.send(actor.sender(), PlaceholderRegistry.of("success", 0, "errors", 1));
+			}
+		}
+	}
+
+	@Subcommand ("setStage")
+	@CommandPermission ("beautyquests.command.setStage")
+	public void setStage(
+			BukkitCommandActor actor,
+			Quester quester,
+			Quest quest,
+			@Range(min = 0, max = 14) @Optional Integer branchId,
+			@Range(min = 0, max = 14) @Optional Integer stageId) {
+		// syntax: no arg: next or start | 1 arg: start branch | 2 args: set branch stage
+		BranchesManagerImplementation manager = (BranchesManagerImplementation) quest.getBranchesManager();
+
+		var dataOpt = quester.getDataHolder().getQuestDataIfPresent(quest);
+		if (branchId == null && (dataOpt.isEmpty() || !dataOpt.get().hasStarted())) { // start quest
+			quest.start(quester, false);
+			Lang.START_QUEST.send(actor.sender(), quest, quester);
+			return;
+		}
+		var data = quester.getDataHolder().getQuestData(quest); // will create data if necessary
+
+		QuestBranchImplementation currentBranch =
+				(QuestBranchImplementation) quest.getBranchesManager().getPlayerBranch(quester);
+		if (branchId == null) { // next
+			if (data.getState() != QuesterQuestData.State.IN_ENDING_STAGES) {
+				currentBranch.finishPlayerStage(quester, currentBranch.getRegularStage(data.getStage().getAsInt()));
+				Lang.COMMAND_SETSTAGE_NEXT.send(actor.sender());
+			}else Lang.COMMAND_SETSTAGE_NEXT_UNAVAILABLE.send(actor.sender());
+		}else {
+			QuestBranchImplementation targetBranch = manager.getBranch(branchId);
+			if (targetBranch == null)
+				throw new CommandErrorException(Lang.COMMAND_SETSTAGE_BRANCH_DOESNTEXIST.quickFormat("branch_id", branchId));
+
+			if (stageId != null) {
+				if (currentBranch == null)
+					throw new CommandErrorException(Lang.ERROR_OCCURED.quickFormat("error",
+							"player " + quester.getDetailedName() + " has not started quest"));
+				if (targetBranch.getRegularStages().size() <= stageId)
+					throw new CommandErrorException(
+							Lang.COMMAND_SETSTAGE_STAGE_DOESNTEXIST.quickFormat("stage_id", stageId));
+			}
+			Lang.COMMAND_SETSTAGE_SET.quickSend(actor.sender(), "stage_id", stageId);
+			if (currentBranch != null)
+				currentBranch.remove(quester, true);
+			if (stageId == null) { // start branch
+				targetBranch.start(quester);
+			}else { // set stage in branch
+				data.setBranch(OptionalInt.of(branchId));
+				targetBranch.setPlayerStage(quester, targetBranch.getRegularStage(stageId));
+			}
+			QuestsAPI.getAPI().propagateQuestsHandlers(handler -> handler.questUpdated(quester, quest));
+		}
+	}
+
+	@Subcommand ("startDialog")
+	@CommandPermission ("beautyquests.command.setStage")
+	public void startDialog(BukkitCommandActor actor, Player player, Quest quest) {
+		// TODO investigate player/quester usage here
+		Quester acc = PlayerManager.getPlayerAccount(player);
+
+		DialogRunner runner = null;
+		if (!quest.hasStarted(acc)) {
+			if (quest.hasOption(OptionStartDialog.class)) {
+				runner = quest.getOption(OptionStartDialog.class).getDialogRunner();
+			}
+		}else {
+			var data = acc.getDataHolder().getQuestData(quest);
+			if (data.getState() != State.IN_REGULAR_STAGE) {
+				Lang.COMMAND_STARTDIALOG_IMPOSSIBLE.send(actor.sender());
+				return;
+			}else {
+				AbstractStage stage = quest.getBranchesManager().getPlayerBranch(acc)
+						.getRegularStage(data.getStage().getAsInt()).getStage();
+				if (stage instanceof Dialogable dialogable) {
+					runner = dialogable.getDialogRunner();
+				}
+			}
+		}
+
+		if (runner == null) {
+			Lang.COMMAND_STARTDIALOG_NO.send(actor.sender());
+		}else {
+			if (runner.isPlayerInDialog(player)) {
+				Lang.COMMAND_STARTDIALOG_ALREADY.send(actor.sender());
+			}else {
+				runner.handleNext(player, DialogNextReason.COMMAND);
+				Lang.COMMAND_STARTDIALOG_SUCCESS.send(actor.sender(), acc, quest);
+			}
+		}
+	}
+
+	@Subcommand ("resetPlayer")
+	@CommandPermission ("beautyquests.command.resetPlayer")
+	public void resetPlayer(BukkitCommandActor actor, QuesterSelector questers) {
+		for (var quester : questers) {
+			var futures = new ArrayList<CompletableFuture<?>>();
+
+			int quests = 0, pools = 0;
+			for (var questDatas : new ArrayList<>(quester.getDataHolder().getAllQuestsData())) {
+				Quest quest = questDatas.getQuest();
+				CompletableFuture<?> future =
+						quest == null ? quester.getDataHolder().removeQuestData(questDatas.getQuestId())
+								: quest.resetQuester(quester);
+				future = future.whenComplete(QuestsPlugin.getPlugin().getLoggerExpanded().logError(
+						"An error occurred while resetting quest {} to {}", actor.audience().get(), questDatas.getQuestId(),
+						quester.getDetailedName()));
+				futures.add(future);
+				quests++;
+			}
+			for (var poolDatas : new ArrayList<>(quester.getDataHolder().getAllPoolsData())) {
+				@Nullable
+				var pool = poolDatas.getPool();
+				CompletableFuture<?> future =
+						pool == null ? quester.getDataHolder().removePoolData(poolDatas.getPoolId())
+								: pool.resetPlayer(quester);
+				future = future.whenComplete(QuestsPlugin.getPlugin().getLoggerExpanded().logError(
+						"An error occurred while resetting pool {} to {}", actor.audience().get(), poolDatas.getPoolId(),
+						quester.getDetailedName()));
+				futures.add(future);
+				pools++;
+			}
+			futures.add(quester.getDataHolder().resetData());
+
+			final int questsFinal = quests;
+			final int poolsFinal = pools;
+			CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+					.whenComplete(QuestUtils.runSyncConsumer(() -> {
+						Bukkit.getPluginManager().callEvent(new QuesterResetEvent(quester));
+						Lang.DATA_REMOVED.send(quester, PlaceholderRegistry.of("quest_amount", questsFinal,
+								"deleter_name", actor.name(), "pool_amount", poolsFinal));
+						Lang.DATA_REMOVED_INFO.send(actor.sender(), PlaceholderRegistry.of("quest_amount", questsFinal,
+								"player_name", quester.getFriendlyName(), "pool_amount", poolsFinal));
+					}));
+
+		}
+	}
+
+	@Subcommand ("resetPlayerQuest")
+	@CommandPermission ("beautyquests.command.resetPlayer")
+	public void resetPlayerQuest(BukkitCommandActor actor, Quester quester, @Optional Quest quest) {
+		if (quest != null) {
+			reset(actor, quester, quest);
+		}else {
+			new QuestsListGUI(obj -> {
+				reset(actor, quester, obj);
+			}, quester, true, false, true).open(actor.requirePlayer());
+		}
+	}
+
+	private void reset(BukkitCommandActor actor, Quester target, Quest qu) {
+		qu.resetQuester(target).whenComplete(QuestsPlugin.getPlugin().getLoggerExpanded().logError(__ -> {
+			Lang.DATA_QUEST_REMOVED.send(target, qu.getPlaceholdersRegistry(),
+					PlaceholderRegistry.of("deleter_name", actor.name()));
+			Lang.DATA_QUEST_REMOVED_INFO.send(actor.audience().get(), target, qu);
+		}, "An error occurred while removing player quest data", actor.audience().get()));
+	}
+
+	@Subcommand ("resetQuest")
+	@CommandPermission ("beautyquests.command.resetQuest")
+	public void resetQuest(BukkitCommandActor actor, Quest quest) {
+		List<CompletableFuture<Boolean>> futures = new ArrayList<>(Bukkit.getOnlinePlayers().size());
+
+		for (var quester : QuestsAPI.getAPI().getQuesterManager().getLoadedQuesters()) {
+			if (!quest.getQuesterStrategy().isQuesterApplicable(quester))
+				continue;
+			futures.add(quest.resetQuester(quester)
+					.whenComplete(QuestsPlugin.getPlugin().getLoggerExpanded().logError(
+							"An error occurred while resetting quest {} to {}", actor.audience().get(), quest.getId(),
+							quester.getDetailedName())));
+		}
+
+		CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).whenComplete((__, ___) -> {
+			// we do not care about failure or success of this "global" future
+
+			int resetAmount =
+					(int) futures.stream().filter(future -> {
+						try {
+							return !future.isCompletedExceptionally() && future.get();
+						} catch (InterruptedException e) {
+							Thread.currentThread().interrupt();
+						} catch (ExecutionException ignored) {
+							// we already check if the future is completed exceptionnally before using get()
+						}
+						return false;
+					}).count();
+
+			BeautyQuests.getInstance().getQuesterManager().getDataManager().resetQuestData(quest.getId())
+					.whenComplete(QuestsPlugin.getPlugin().getLoggerExpanded().logError((Integer removedAmount) -> {
+						Lang.QUEST_PLAYERS_REMOVED.quickSend(actor.sender(), "player_amount",
+								removedAmount + resetAmount);
+					}, "An error occurred while removing quest datas", actor.audience().get()));
+		}).whenComplete(QuestsPlugin.getPlugin().getLoggerExpanded().logError());
+
+	}
+
+	@Subcommand ("seePlayer")
+	@CommandPermission ("beautyquests.command.seePlayer")
+	public void seePlayer(Player actor, Player player) {
+		new PlayerListGUI(QuestsAPI.getAPI().getQuesterManager(), player, true).open(actor);
+	}
+
+	@Subcommand ("start")
+	@CommandPermission ("beautyquests.command.start")
+	public void start(BukkitCommandActor actor, ExecutableCommand<BukkitCommandActor> command,
+			QuesterSelector questers, @Optional Quest quest,
+			@CommandPermission("beautyquests.command.start.other") @Switch boolean force) {
+		if (actor.isPlayer() && !startOtherPermission.isExecutableBy(actor)) {
+			if (questers.isEmpty() || questers.size() > 1 || (questers.get(0) != PlayerManager.getPlayerAccount(actor.asPlayer())))
+				throw new NoPermissionException(command);
+		}
+		// TODO rework this command: split implementation between user-target and admin-target
+
+		for (var quester : questers) {
+			if (quest == null) {
+				new QuestsListGUI(obj -> {
+					start(actor.sender(), quester, obj, force);
+				}, quester, false, true, false).open(actor.requirePlayer());
+			}else {
+				start(actor.sender(), quester, quest, force);
+			}
+		}
+	}
+
+	private void start(CommandSender sender, Quester target, Quest quest, boolean force) {
+		if (!force) {
+			if (!(target instanceof PlayerQuester playerQuester) || !playerQuester.isActive()) {
+				DefaultErrors.sendGeneric(sender,"Cannot test requirements for non-player quester");
+				return;
+			}
+			if (!quest.canStart(playerQuester.getPlayer().get(), true)) {
+				Lang.START_QUEST_NO_REQUIREMENT.send(sender, quest, target);
+				return;
+			}
+		}
+		quest.start(target, false);
+		Lang.START_QUEST.send(sender, quest, target);
+	}
+
+	@Subcommand ("cancel")
+	@CommandPermission ("beautyquests.command.cancel")
+	public void cancel(BukkitCommandActor actor, ExecutableCommand<BukkitCommandActor> command,
+			QuesterSelector questers, @Optional Quest quest) {
+		if (actor.isPlayer() && !cancelOtherPermission.isExecutableBy(actor)) {
+			if (questers.isEmpty() || questers.size() > 1 || (questers.get(0) != actor.asPlayer()))
+				throw new NoPermissionException(command);
+		}
+		// TODO same
+
+		for (var quester : questers) {
+			if (quest == null) {
+				new QuestsListGUI(obj -> {
+					cancel(actor, quester, obj);
+				}, quester, true, false, false).open(actor.requirePlayer());
+			}else {
+				cancel(actor, quester, quest);
+			}
+		}
+	}
+
+	private void cancel(BukkitCommandActor actor, Quester target, Quest quest) {
+		if (!quest.isCancellable()) {
+			Lang.CANCEL_QUEST_UNAVAILABLE.send(actor.audience().get(), quest);
+			return;
+		}
+
+		if (quest.cancelQuester(target)) {
+			Lang.CANCEL_QUEST.send(actor.audience().get(), quest);
+		} else {
+			if (actor.isPlayer() && target instanceof PlayerQuester playerQuester
+					&& actor.asPlayer().equals(playerQuester.getPlayer().orElse(null))) {
+				Lang.QUEST_NOT_STARTED.send(actor.audience().get());
+			} else {
+				DefaultErrors.sendGeneric(actor.audience().get(),
+						"Quester " + target.getFriendlyName() + " does not have the quest " + quest.getId() + " started.");
+			}
+		}
+	}
+
+}

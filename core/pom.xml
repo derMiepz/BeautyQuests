@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<packaging>jar</packaging>
+	<artifactId>beautyquests-core</artifactId>
+	<parent>
+		<groupId>fr.skytasul</groupId>
+		<artifactId>beautyquests-parent</artifactId>
+		<version>${revision}</version>
+	</parent>
+
+	<properties>
+		<argLine />
+	</properties>
+
+	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+			<resource>
+				<targetPath>.</targetPath>
+				<filtering>true</filtering>
+				<directory>${basedir}/src/main/resources</directory>
+				<includes>
+					<include>paper-plugin.yml</include>
+					<include>libraries.yml</include>
+				</includes>
+			</resource>
+		</resources>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>3.6.0</version>
+				<configuration>
+					<createDependencyReducedPom>false</createDependencyReducedPom>
+					<relocations>
+						<relocation>
+							<pattern>com.jeff_media.updatechecker</pattern>
+							<shadedPattern>fr.skytasul.quests.utils.updatechecker</shadedPattern>
+						</relocation>
+						<relocation>
+							<pattern>com.tchristofferson.configupdater</pattern>
+							<shadedPattern>fr.skytasul.quests.utils.configupdater</shadedPattern>
+						</relocation>
+						<relocation>
+							<pattern>org.bstats</pattern>
+							<shadedPattern>fr.skytasul.quests.utils.bstats</shadedPattern>
+						</relocation>
+					</relocations>
+					<artifactSet>
+						<includes>
+							<include>org.bstats:*</include>
+							<include>com.tchristofferson:ConfigUpdater</include>
+							<include>com.jeff_media:SpigotUpdateChecker</include>
+						</includes>
+					</artifactSet>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.8.0</version>
+				<configuration>
+					<parameters>true</parameters> <!-- For commands -->
+				</configuration>
+			</plugin>
+
+			<!-- Testing -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>properties</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.5.4</version>
+				<configuration>
+					<argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+	<repositories>
+		<!-- <repository>
+			<id>jeff-media-public</id>
+			<url>https://repo.jeff-media.com/public/</url>
+		</repository> -->
+		<repository> <!-- For brigadier -->
+			<id>minecraft-repo</id>
+			<url>https://libraries.minecraft.net/</url>
+		</repository>
+		<repository> <!-- For PlayerBlockTracker -->
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
+		</repository>
+		<repository>
+			<name>Central Portal Snapshots</name>
+			<id>central-portal-snapshots</id>
+			<url>https://central.sonatype.com/repository/maven-snapshots/</url>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
+
+	<dependencies>
+		<dependency>
+			<groupId>fr.skytasul</groupId>
+			<artifactId>beautyquests-api</artifactId>
+			<version>${revision}</version>
+			<scope>compile</scope>
+		</dependency>
+
+		<!-- Development dependencies -->
+		<dependency>
+			<groupId>org.jetbrains</groupId>
+			<artifactId>annotations</artifactId>
+			<version>24.0.0</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>commons-lang</groupId>
+			<artifactId>commons-lang</artifactId>
+			<version>${commons-lang.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.papermc.paper</groupId>
+			<artifactId>paper-api</artifactId>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.netty</groupId>
+			<artifactId>netty-all</artifactId>
+			<version>4.1.68.Final</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>io.github.revxrsal</groupId>
+			<artifactId>lamp.brigadier</artifactId>
+			<version>${lamp.version}</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.mojang</groupId>
+			<artifactId>brigadier</artifactId>
+			<version>1.0.18</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<!-- Integrations that must be in core -->
+		<dependency>
+			<groupId>fr.skytasul</groupId>
+			<artifactId>accountshook</artifactId>
+			<version>2.1.0</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.github.Flo0</groupId>
+			<artifactId>PlayerBlockTracker</artifactId>
+			<version>1.0.2</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<!-- To resolve dependencies at runtime and avoid weird issues
+		with package relocation when developing. -->
+		<!-- <dependency>
+		    <groupId>net.byteflux</groupId>
+		    <artifactId>libby-bukkit</artifactId>
+		    <version>1.3.1</version>
+		</dependency>
+		<dependency>
+		    <groupId>net.byteflux</groupId>
+		    <artifactId>libby-paper</artifactId>
+		    <version>1.3.1</version>
+		</dependency> -->
+
+		<!-- Included libraries -->
+		<dependency>
+			<groupId>com.zaxxer</groupId>
+			<artifactId>HikariCP</artifactId>
+			<version>${hikaricp.version}</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.bstats</groupId>
+			<artifactId>bstats-bukkit</artifactId>
+			<version>3.1.0</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>fr.mrmicky</groupId>
+			<artifactId>fastboard</artifactId>
+			<version>${fastboard.version}</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.tchristofferson</groupId>
+			<artifactId>ConfigUpdater</artifactId>
+			<version>2.2-SNAPSHOT</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.jeff_media</groupId>
+			<artifactId>SpigotUpdateChecker</artifactId>
+			<version>3.0.3-offline</version>
+			<scope>compile</scope>
+		</dependency>
+
+		<!-- Testing dependencies -->
+		<dependency>
+			<groupId>org.mockbukkit.mockbukkit</groupId>
+			<artifactId>mockbukkit-v26.1.2</artifactId>
+			<version>4.113.0</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-core</artifactId>
+			<version>5.18.0</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.awaitility</groupId>
+			<artifactId>awaitility</artifactId>
+			<version>4.3.0</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-jdk14</artifactId>
+			<version>2.0.17</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<version>2.4.240</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.xerial</groupId>
+			<artifactId>sqlite-jdbc</artifactId>
+			<version>3.53.2.0</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+</project>

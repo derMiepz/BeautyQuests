@@ -1,22 +1,36 @@
+[![GitHub release](https://img.shields.io/github/v/release/SkytAsul/BeautyQuests?color=green)](https://github.com/SkytAsul/BeautyQuests/releases/latest)
+[![GitHub pre-release](https://img.shields.io/github/v/release/SkytAsul/BeautyQuests?include_prereleases&color=green&label=pre-release)](https://github.com/SkytAsul/BeautyQuests/releases)
+[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/SkytAsul/BeautyQuests/build.yml)](https://github.com/SkytAsul/BeautyQuests/actions)
+[![Crowdin](https://d322cqt584bo4o.cloudfront.net/beautyquests/localized.svg)](https://crowdin.com/project/beautyquests)
+[![Spiget Downloads](https://img.shields.io/spiget/downloads/39255?label=Spigot%20downloads)](https://www.spigotmc.org/resources/beautyquests.39255/)
+[![Modrinth Downloads](https://img.shields.io/modrinth/dt/beautyquests?label=Modrinth%20downloads)](https://modrinth.com/plugin/beautyquests/)
+[![Hangar Downloads](https://img.shields.io/hangar/dt/beautyquests?label=Hangar%20downloads)](https://hangar.papermc.io/SkytAsul/BeautyQuests)
+![bStats Servers](https://img.shields.io/bstats/servers/7460)
+![bStats Players](https://img.shields.io/bstats/players/7460)
+[![Discord](https://ptb.discordapp.com/api/guilds/482632781395132416/widget.png)](https://discord.gg/H8fXrkD)
+[![Gitmoji](https://img.shields.io/badge/gitmoji-%20😜%20😍-FFDD67.svg?style=flat-square)](https://gitmoji.dev)
+
+![banner](docs/src/assets/banner.png)
+
 # BeautyQuests
-What is **BeautyQuests** ?
-* BeautyQuests is a quests plugin based on a simple-to-use graphical interface for Minecraft.
-* It's more than 15 thousands lines of Java code.
-* It's a plugin absolutely free, with a full technical documentation.
-* It's also a collaborative work, if you have ideas, submit them to me, and I'll try to add them !
-* It has compatibility with a large number of others plugins (like MythicMobs, Jobs, Vault...)
-
-## Overview :
-BeautyQuests is a plugin who allows you to create quests very simply with a graphical user interface created with the Minecraft inventories, not in the tchat like the plugin Quests.
-This plugin is elaborate to look pretty and to simplify the quests for the players.
-
-## Download :
-Can be downloaded only from **[SpigotMC](https://www.spigotmc.org/resources/beautyquests.39255)**
-
-## Wiki :
-You can find the **wiki [here](https://github.com/SkytAsul/BeautyQuests/wiki)**
+What is **BeautyQuests**?
+* BeautyQuests is a Minecraft quest plugin based on a simple-to-use graphical interface.
+* It's an absolutely free plugin with a full technical documentation.
+* It's also a collaborative work, where everyone can improve and add new features. If you have ideas, submit them and I or somebody else will try to implement them.
+* It's compatible with a large number of other plugins (like MythicMobs, Jobs, Citizens, ...).
 
 ***
 
+## Downloads
+Plugin releases can be downloaded from **[Modrinth](https://modrinth.com/plugin/beautyquests/)** or **[Hangar](https://hangar.papermc.io/SkytAsul/BeautyQuests)**.
+
+Development builds are available in the **[releases section](https://github.com/SkytAsul/BeautyQuests/releases)**.
+
+## Documentation
+You can find the **wiki [here](https://beautyquests.skytasul.fr)**. It contains a lot of useful informations.
+
+## Crowdin
+If you want to help us translate BeautyQuests into your native language, join the [official BeautyQuests Crowdin project](https://crowdin.com/project/beautyquests) and let players in-game see your translations (read the project description for more informations).
+
 ## Discord
-If you need help, I opened a [Discord server](https://discord.gg/H8fXrkD) where peoples can help you and where you can discuss about bugs, etc.
+If you need help, found a bug, or want to share an idea, you can join the official [Plugin Support Discord server by SkytAsul](https://discord.gg/H8fXrkD).

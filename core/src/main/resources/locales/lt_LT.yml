@@ -1,0 +1,461 @@
+---
+msg:
+  quest:
+    finished:
+      base: '§aSveikiname! Jūs baigėte Misija §e{quest_name}§a!'
+      obtain: '§aJūs gaunate {rewards}!'
+    started: '§aJūs pradėjote Misija §r§e{quest_name}§o§6!'
+    created: '§aSveikiname! Jūs sukūrėte užduotį §e{quest}§a, kuri apima {quest_branches} atšaka(s)!'
+    edited: '§aSveikiname! Redagavote užduotį §e{quest}§a, kuri apima ir dabar {quest_branches} atšaka(s)!'
+    createCancelled: '§cKūrinį ar leidimą atšaukė kitas papildinys!'
+    cancelling: '§cUžduoties kūrimo procesas atšauktas.'
+    invalidID: '§cUžduotis su ID {quest_id} neegzistuoja.'
+    alreadyStarted: '§cJūs jau pradėjote Misija!'
+  quests:
+    updated: '§7Misija §e{quest_name}§7 atnaujinta.'
+    checkpoint: '§7Pasiektas misijos kontrolinis punktas!'
+    failed: '§cJums nepavyko užduotis {quest_name}...'
+  questItem:
+    drop: '§cJūs negalite mesti Misija daiktas!'
+    craft: '§cNegalite naudoti Misijos Daikto, kad sukurtumėte!'
+  stageMobs:
+    listMobs: '§aPrivalai nužudyti {mobs}.'
+  writeNPCText: '§aParašykite dialogą, kurį žaidėjas pasakys NPC: (Write "help" gauti pagalbos.)'
+  writeRegionName: '§aParašykite žingsniui reikalingo regiono pavadinimą:'
+  writeXPGain: '§aParašykite, kiek patirties taškų gaus žaidėjas: (Paskutinis value: {xp_amount})'
+  writeMobAmount: '§aParašykite, kiek Monstru reikia nužudyti:'
+  writeStageText: '§aParašykite tekstą, kuris bus išsiųstas Žaidejui pradžioje žingsnio: " moveToTeleportPoint: §aEikite į norimą teleportavimo vietą. writeNpcName: "&aParašykite NPC pavadinimą" writeNpcSkinName: "§aParašykite NPC odos pavadinimą:" writeQuestName: "§aParašykite savo užduoties pavadinimą:" writeCommand: "§aParašykite norimą komandą: (Komanda yra be / ir" vietos rezervavimo priemonė „{PLAYER}“ palaikoma. Jis bus pakeistas pavadinimu vykdomas.) “ writeHologramText: "§aParašykite hologramos tekstą: (Jei nenorite, parašykite „nėra“ hologramos ir „null“, jei norite numatytojo teksto.) '
+  writeQuestTimer: '§aParašykite reikiamą laiką (in minutes), kad galėtumėte paleisti iš naujo the quest: (Parašykite „null“, jei norite default laikmačio.)'
+  writeConfirmMessage: '§aParašykite patvirtinimo pranešimą, rodomą, kai žaidėjas yra apie to start the quest: (Parašykite „null“, jei norite numatytojo pranešimo.)'
+  writeQuestDescription: '§aParašykite Misijos aprašymą, parodytą žaidėjo Misijos GUI.'
+  writeQuestMaterial: '§aParašykite misijos Daikta medžiagą.'
+  requirements:
+    quest: '§cJūs turite baigti Misija §e{quest_name}§c!'
+    level: '§cJūsų lygis turi būti {long_level}!'
+    job: '§cTuri būti jūsų lygis §e{job_name}§c {long_level}!'
+    skill: '§cTuri būti jūsų įgūdis §e{skill_name} §c{long_level}!'
+    combatLevel: '§cJūsų kovinis lygis turi būti {long_level}!'
+    money: '§cTu privalai turėti {money}!'
+  experience:
+    edited: '§aPakeitėte patirties įgijimą iš {old_xp_amount} į {xp_amount} taškų.'
+  selectNPCToKill: '§aPasirinkite nužudyti NPC.'
+  regionDoesntExists: '§cŠio regiono nėra. (Jūs turite būti tame pačiame pasaulyje.)'
+  npcDoesntExist: '§cNPC su ID {npc_id} neegzistuoja.'
+  number:
+    negative: '§cTurite įvesti teigiamą skaičių!'
+    zero: '§cTurite įvesti kitą nei. Numerį 0!'
+    invalid: '§c{input} neteisingas numeris.'
+  errorOccurred: '§cĮvyko klaida. Susisiekite su administratoriumi! §4§lKlaidos kodas: {error}'
+  indexOutOfBounds: '§cSkaičius {index} yra ribų! Tai turi būti nuo {min} iki {max}.'
+  invalidBlockData: '§cBlokavimo duomenys {block_data} yra neteisingi arba nesuderinami su bloku {block_material}.'
+  bringBackObjects: Atnešk {items}.
+  inventoryFull: '§cJūsų inventorius yra pilnas, daiktas numestas ant grindų.'
+  command:
+    checkpoint:
+      noCheckpoint: '§cNerasta užduoties kontrolinio punkto {quest}.'
+      questNotStarted: '§cJūs neatliekate šios Misijos.'
+    setStage:
+      branchDoesntExist: '§cFilialas su ID {branch_id} neegzistuoja.'
+      doesntExist: '§Žyngsnio, kurios ID yra {stage_id}, nėra.'
+      next: '§a„Žyngsnis“ praleistas.'
+      nextUnavailable: '§cParinktis „praleisti“ negalima, kai žaidėjas yra šakos pabaiga.'
+      set: '§aPaleistas {stage_id} etapas.'
+    invalidCommand:
+      simple: '§cŠios komandos nėra, parašykite §ehelp§c.'
+    itemChanged: '§aDaiktas buvo redaguotas. Pakeitimai turės įtakos iš naujo paleidus.'
+    itemRemoved: '§aHologramos Daiktas pašalintas.'
+    removed: '§aUžduotis {quest_name} sėkmingai pašalinta.'
+    leaveAll: '§aPriverstinai baigėte {success} Misija Klaidos: {errors}'
+    resetPlayer:
+      player: '§6Visą jūsų {quest_amount} užduoties (-ių) informaciją ištrynė {deleter_name}.'
+      remover: '§6{quest_amount} {player} Misijos informacija (-os) buvo ištrinta (-os).'
+    resetPlayerQuest:
+      player: '§6Visą informaciją apie užduotį {quest} ištrynė {deleter_name}.'
+      remover: '§6{player} {quest} Misijos informacija (-os) buvo ištrinta (-os).'
+    resetQuest: '§6Pašalinti {player_amount} žaidėjų Misiju duomenys.'
+    cancelQuest: '§6Atšaukėte užduotį {quest}.'
+    cancelQuestUnavailable: '§cUžduoties {quest} negalima atšaukti.'
+    backupCreated: '§6Jūs sėkmingai sukūrėte visų užduočių ir Žaidejo atsargines kopijas informacijos.'
+    adminModeEntered: '§aĮėjote į administratoriaus režimą.'
+    adminModeLeft: '§aIšėjote iš administratoriaus režimo.'
+    scoreboard:
+      lineSet: '§6Sėkmingai redagavote eilutę {line_id}.'
+      lineReset: '§6Sėkmingai nustatėte eilutę iš naujo {line_id}.'
+      lineRemoved: '§6Jūs sėkmingai pašalinote eilutę {line_id}.'
+      lineInexistant: '§cEilutės {line_id} nėra.'
+      resetAll: '§6Jūs sėkmingai iš naujo nustatėte žaidėjo rezultatų suvestinę {player_name}.'
+      hidden: '§6Žaidėjo {player_name} rezultatų suvestinė buvo paslėpta.'
+      shown: '§6Parodytas žaidėjo {player_name} rezultatų suvestinė.'
+  typeCancel: '§aRašykite "cancel" grįžti prie paskutinio teksto.'
+  editor:
+    blockAmount: '§aParašykite blokų kiekį:'
+    blockName: '§aParašykite bloko pavadinimą:'
+    blockData: '§aParašykite blokaduomenis (galimi blokiniai duomenys: {available_datas}):'
+    typeBucketAmount: '§aParašykite užpildomų kibirų kiekį:'
+    goToLocation: '§aEikite į norimą Punkta vietą.'
+    typeLocationRadius: '§aParašykite reikiamą atstumą nuo vietos:'
+    typeGameTicks: '§aParašykite reikalingas žaidimo erkes:'
+    already: '§cJūs jau esate redaktoriuje.'
+    enter:
+      title: '§6~ Redaktoriaus režimas ~'
+      subtitle: '§6Rašykite "/quests editor" priversti išeiti.'
+    chat: '§6You are currently in the Editor Mode. Write "/quests editor" to force leaving the editor. (Highly not recommended, consider using commands such as "close" or "cancel" to come back to the previous inventory.)'
+    npc:
+      enter: '§aSpustelėkite NPC arba parašykite "cancel".'
+      choseStarter: '§aPasirinkite NPC, kuris pradeda užduotį.'
+      notStarter: '§cŠis NPC nėra užduočių pradininkas.'
+    text:
+      argNotSupported: '§cArgumentas {arg} nepalaikomas.'
+      chooseLvlRequired: '§aParašykite reikiamą kiekį lygių:'
+      chooseJobRequired: '§aParašykite norimo darbo pavadinimą:'
+      choosePermissionRequired: '§aParašykite reikiamą leidimą pradėti užduotį:'
+      choosePermissionMessage: '§aGalite pasirinkti atmetimo pranešimą, jei grotuvas neturi reikiamo leidimo. (Jei norite praleisti šį veiksmą, parašykite „null“.)'
+      choosePlaceholderRequired:
+        identifier: '§aParašykite reikiamos placeholder pavadinimą be procentų personažai:'
+        value: '§aParašykite reikiamą vietos rezervavimo ženklo vertę §e%§e{placeholder}§e%§a:'
+      chooseSkillRequired: '§aParašykite reikiamo įgūdžio pavadinimą:'
+      chooseMoneyRequired: '§aParašykite reikalingų pinigų sumą:'
+      reward:
+        permissionName: '§aParašykite leidimo pavadinimą.'
+        permissionWorld: '§aParašykite pasaulį, kuriame bus redaguojamas leidimas, arba „null“, jei norite būti globalus.'
+        money: '§aParašykite gautų pinigų sumą:'
+      chooseObjectiveRequired: '§aParašykite objektyvų pavadinimą.'
+      chooseObjectiveTargetScore: '§aParašykite tikslo tikslinį rezultatą.'
+      chooseRegionRequired: '§aParašykite reikiamo regiono pavadinimą (turite būti tas pats pasaulis).'
+    selectWantedBlock: '§aSpustelėkite lazda ant norimo Etapo bloko.'
+    itemCreator:
+      itemType: '§aParašykite norimo daikto tipo pavadinimą:'
+      itemAmount: '§aParašykite Daiktu (-ių) kiekį:'
+      itemName: '§aParašykite daikto pavadinimą:'
+      itemLore: '§aPakeiskite prekės aprašymą: (Parašykite „help“, kad gautumėte pagalbos.)'
+      unknownItemType: '§cNežinomas daikto tipas.'
+      invalidItemType: '§cNeteisingas daikto tipas. (daiktas negali būti blokas.)'
+      unknownBlockType: '§cNežinomas bloko tipas.'
+      invalidBlockType: '§cNeteisingas bloko tipas.'
+    dialog:
+      syntaxRemove: '§cTeisingai sytax: pašalinti <id>'
+      cleared: '§a{amount} pašalintas pranešimas (-ai).'
+      help:
+        header: '§6§l„Misiju“ - „Dialog“ redaktoriaus pagalba'
+        npc: '§6npc <message>: §ePridėkite pranešimą, kurį pasakė NPC.'
+        player: '§6player <message>: §ePridėkite žaidėjo pasakytą pranešimą.'
+        nothing: '§6noSender <message>: §ePridėkite pranešimą be siuntėjo.'
+        remove: '§6remove <id>: §ePašalinti pranešimą.'
+        list: '§6list: §ePeržiūrėti visus pranešimus.'
+        npcInsert: '§6npcInsert <id> <message>: §eĮterpkite pranešimą, kurį pasakė NPC.'
+        playerInsert: '§6playerInsert <id> <message>: §eĮterpkite žaidėjo pasakytą pranešimą.'
+        nothingInsert: '§6nothingInsert <id> <message>: §eĮterpti pranešimą be bet koks priešdėlis.'
+        addSound: '§6addSound <id> <sound>: §ePridėkite garsą prie pranešimo.'
+        clear: '§6clear: §ePašalinti visus pranešimus.'
+        close: '§6close: §ePatvirtinkite visus pranešimus.'
+        setTime: '§6setTime <id> <time>: §eSet the time (in ticks) prieš kitą msg groja automatiškai.'
+      timeSet: '§aPranešimo laikas redaguotas {msg}: dabar {time} tick.'
+      timeRemoved: '§aPranešimo laikas pašalintas {msg}.'
+    mythicmobs:
+      list: '§aVisų mitinių mobų sąrašas:'
+      isntMythicMob: '§cŠis mitinis mobas neegzistuoja.'
+      disabled: '§c„MythicMob“ yra išjungtas.'
+    textList:
+      syntax: '§cTeisingai syntax: '
+      help:
+        header: '§6§lMisiju'
+        add: '§6add <message>: §ePridėti tekstą.'
+        remove: '§6remove <id>: §ePašalinti tekstą.'
+        list: '§6list: §ePeržiūrėti visus pridėtus tekstus.'
+        close: '§6close: §ePatvirtinkite pridėtus tekstus.'
+    noSuchElement: '§cTokio elemento nėra. Leidžiami elementai yra: §e{available_elements}'
+    scoreboardObjectiveNotFound: '§cNežinomas rezultatų suvestinės tikslas.'
+  writeCommandDelay: '§aParašykite norimą komandos uždelsimą, pažymėdami varnele.'
+advancement:
+  notStarted: Nepradėta
+inv:
+  validate: '§b§lPatvirtinti'
+  cancel: '§c§lAtšaukti'
+  search: '§e§lPaieška'
+  confirm:
+    name: Ar tu tuo tikras?
+    'yes': '§aPatvirtinti'
+    'no': '§cAtšaukti'
+  create:
+    stageCreate: '§aSukurkite naują žingsnį'
+    stageRemove: '§cIštrinkite šį veiksmą'
+    findNPC: '§aRaskite NPC'
+    bringBack: '§aGrąžinkite daiktus'
+    findRegion: '§aRaskite regioną'
+    killMobs: '§aNužudyk mobys'
+    mineBlocks: '§aLaužyti blokus'
+    placeBlocks: '§aVieta blokus'
+    talkChat: '§aRašykite pokalbyje'
+    interact: '§aBendraukite su bloku'
+    fish: '§aGaudyti žuvis'
+    craft: '§aAmatų daiktas'
+    bucket: '§aUžpildykite kibirus'
+    location: '§aEikite į vietą'
+    playTime: '§eŽaidimo laikas'
+    NPCText: '§eRedaguoti dialogo langą'
+    NPCSelect: '§ePasirinkite arba sukurkite NPC'
+    hideClues: Slėpti daleles ir hologramas
+    editMobsKill: '§eRedaguoti mobu nužudyti'
+    mobsKillFromAFar: Reikia nužudyti sviediniu
+    editBlocksMine: '§eRedaguokite blokus, kad sulaužytumėte'
+    preventBlockPlace: Neleiskite žaidėjams sulaužyti savo blokų
+    editBlocksPlace: '§eRedaguokite blokus, kuriuos norite įdėti'
+    editMessageType: '§eRedaguokite pranešimą, kad galėtumėte parašyti'
+    cancelMessage: Atšaukti siuntimą
+    ignoreCase: Nepaisykite pranešimo atvejo
+    selectItems: '§eRedaguokite reikalingus Daiktu'
+    selectRegion: '§7Pasirinkite regioną'
+    toggleRegionExit: Išvažiuodamas
+    stageStartMsg: '§eRedaguoti pradinį pranešimą'
+    selectBlockLocation: '§ePasirinkite blokavimo vietą'
+    selectBlockMaterial: '§ePasirinkite bloko medžiagą'
+    leftClick: Spustelėkite kairįjį pelės klavišą
+    editFishes: '§eRedaguokite žuvis, kad pagautumėte'
+    editItem: '§eRedaguoti daikto, kad būtų galima sukurti'
+    editBucketType: '§eRedaguokite užpildomo segmento tipą'
+    editBucketAmount: '§eRedaguokite užpildomų grupių kiekį'
+    editLocation: '§eRedaguoti vietą'
+    editRadius: '§eRedaguoti atstumą nuo vietos'
+    currentRadius: '§eDabartinis atstumas: §6{radius}'
+    changeTicksRequired: '§eBūtina pakeisti žaidžiamas erkes'
+  stages:
+    name: Kurkite etapus
+    nextPage: '§eKitas puslapis'
+    laterPage: '§eAnkstesnis puslapis'
+    endingItem: '§eRedaguokite pabaigos apdovanojimus'
+    descriptionTextItem: '§eRedaguoti aprašą'
+    regularPage: '§aReguliarūs etapai'
+    branchesPage: '§dFilialų etapai'
+    previousBranch: '§eGrįžti į ankstesnį skyrių'
+    newBranch: '§eEiti į naują filialą'
+    validationRequirements: '§ePatvirtinimo reikalavimai'
+    validationRequirementsLore: Visi reikalavimai turi atitikti bandantį žaidėją etapui užbaigti. Jei ne, etapas negali būti baigtas.
+  details:
+    hologramLaunch: '§eRedaguoti „paleisti“ hologramos elementą'
+    hologramLaunchLore: Holograma rodoma virš „Starter NPC“ galvos, kai grotuvas gali pradėti ieškojimą.
+    hologramLaunchNo: '§eRedaguokite daikta „Paleisti nepasiekiamą“'
+    hologramLaunchNoLore: Holograma rodoma virš „Starter NPC“ galvos, kai Žaidejo Negaliu pradėti Misijos.
+    customConfirmMessage: '§eRedaguoti Misijos patvirtinimo pranešimą'
+    customConfirmMessageLore: Pranešimas, rodomas patvirtinimo GUI, kai žaidėjas ruošiasi pradėti Misija.
+    customDescription: '§eRedaguoti Misijos aprašą'
+    customDescriptionLore: Aprašymas pateiktas po GUI vartotojo užduoties pavadinimu.
+    name: Paskutinės užduoties informacija
+    multipleTime:
+      itemName: Perjungti pakartotinai
+      itemLore: Ar Misijos galima atlikti kelis kartus?
+    cancellable: Atšaukiamas žaidėjo
+    cancellableLore: Leidžia žaidėjui atšaukti užduotį per „Quest“ meniu.
+    startableFromGUI: Pradedama nuo GUI
+    startableFromGUILore: Leidžia žaidėjui pradėti užduotis iš „Quests“ meniu.
+    scoreboardItem: Įgalinti rezultatų suvestinę
+    scoreboardItemLore: Jei išjungta, užduotis nebus stebima per rezultatų suvestinę.
+    bypassLimit: Neskaičiuokite užduočių limito
+    bypassLimitLore: Jei bus įjungta, užduotis bus pradėta, net jei žaidėjas turi pasiekė maksimalų pradėtų užduočių kiekį.
+    questName: '§a§lRedaguoti užduoties pavadinimą'
+    questNameLore: Norint užbaigti užduotį, reikia nustatyti pavadinimą.
+    setItemsRewards: '§eRedaguokite atlygio daiktus'
+    setXPRewards: '§eRedaguokite atlygio patirtį'
+    setCheckpointReward: '§eRedaguoti kontrolinio taško atlygius'
+    setPermReward: '§eRedaguoti leidimus'
+    setMoneyReward: '§eRedaguokite piniginį atlygį'
+    selectStarterNPC: '§e§lPasirinkite „NPC starter“'
+    selectStarterNPCLore: Spustelėjus pasirinktą NPC bus pradėta užduotis.
+    createQuestName: '§lSukurti kvestą'
+    createQuestLore: Turite apibrėžti užduoties pavadinimą.
+    editQuestName: '§lRedaguoti Misija'
+    endMessage: '§eRedaguoti pabaigos pranešimą'
+    endMessageLore: Pranešimas, kuris bus išsiųstas žaidėjui kvesto pabaigoje.
+    startDialog: '§eRedaguoti pradžios dialogo langą'
+    startDialogLore: Dialogas, kuris bus žaidžiamas prieš pradedant užduotis žaidėjams spustelėkite „Starter NPC“.
+    editRequirements: '§eRedaguoti reikalavimus'
+    editRequirementsLore: Visi reikalavimai žaidėjui turi būti taikomi prieš tai galint pradėti Misija.
+    startRewards: '§6Pradėk apdovanojimus'
+    startRewardsLore: Veiksmai, atliekami pradėjus Misija.
+    hologramText: '§eHologramos tekstas'
+    hologramTextLore: Hologramoje rodomas tekstas virš „Starter NPC“ galvos.
+    timer: '§bPaleiskite laikmatį iš naujo'
+    requirements: '{amount} reikalavimas (-ai)'
+    rewards: '{amount} atlygis (-ai)'
+    actions: '{amount} veiksmai'
+    rewardsLore: Veiksmai, atlikti pasibaigus kvestui.
+    customMaterial: '§eRedaguoti kvesto daikto medžiagą'
+    customMaterialLore: Šio kvesto elementas „Quest“ meniu.
+    failOnDeath: Nesėkmė mirus
+    failOnDeathLore: Ar užduotis bus atšaukta, kai žaidėjas mirs?
+    keepDatas: Išsaugoti žaidėjų duomenis
+    keepDatasLore: |-
+      Priverskite papildinį išsaugoti žaidėjų duomenis, nors etapai buvo redaguoti. §c§lWARNING §c- įjungus šią parinktį, gali būti sugadinti jūsų žaidėjų duomenys.
+    loreReset: '§e§lVisi žaidėjais'' pažanga bus nustatyta iš naujo'
+    optionValue: '§8Vertė: §7{value}'
+  itemsSelect:
+    name: Redaguoti daiktus
+    none: |-
+      §aPerkelkite elementą į čia arba spustelėkite, jei norite atidaryti elementų redaktorių.
+  itemSelect:
+    name: Pasirinkite daikta
+  npcCreate:
+    name: Sukurkite NPC
+    setName: '§eRedaguoti NPC pavadinimą'
+    setSkin: '§eRedaguoti NPC odą'
+    setType: '§eRedaguoti NPC tipą'
+    move:
+      itemName: '§ePerkelti'
+      itemLore: '§aPakeiskite NPC vietą.'
+    moveItem: '§a§lPatvirtinti vietą'
+  npcSelect:
+    name: Pasirinkite arba sukurkite?
+    selectStageNPC: '§ePasirinkite esamą NPC'
+    createStageNPC: '§eSukurkite NPC'
+  entityType:
+    name: Pasirinkite objekto tipą
+  chooseQuest:
+    name: Kuris Misija?
+  mobs:
+    name: Pasirinkite mobus
+    none: '§aSpustelėkite, jei norite pridėti mobu.'
+  mobSelect:
+    name: Pasirinkite minios tipą
+    bukkitEntityType: '§ePasirinkite objekto tipą'
+    mythicMob: '§6Pasirinkite „Mitinis mobas“'
+    epicBoss: '§6Pasirinkite „Epic Boss“'
+    boss: '§6Pasirinkite bosą'
+  stageEnding:
+    locationTeleport: '§eRedaguoti teleportavimo vietą'
+    command: '§eRedaguoti įvykdytą komandą'
+  requirements:
+    name: Reikalavimai
+  checkpointActions:
+    name: Kontrolės punkto veiksmai
+  listAllQuests:
+    name: Misijos
+  listPlayerQuests:
+    name: '{player_name}''s Misijos'
+  listQuests:
+    notStarted: Nepradėti Misija
+    finished: Atlikti Misija
+    inProgress: Vykdomi Misijos
+    loreStart: '§a§oSpustelėkite, kad pradėtumėte užduotį.'
+    loreStartUnavailable: '§c§oNeatitinkate reikalavimų pradėti užduotį.'
+    canRedo: '§3§oGalite iš naujo paleisti šį užduoti!'
+  itemCreator:
+    name: daikto kūrėjasr
+    itemType: '§bPrekės tipas'
+    itemFlags: Perjungti daiktu vėliavas
+    itemName: '§bDaikto pavadinimas'
+    itemLore: '§bDaiktų žinios'
+    isQuestItem: '§bUžduočių daiktas:'
+  command:
+    name: Komanda
+    value: '§eKomanda'
+    console: Konsolė
+    delay: '§bDelsimas'
+  chooseAccount:
+    name: Kokia sąskaita?
+  listBook:
+    questName: vardas
+    questStarter: Starteris
+    questRewards: Apdovanojimai
+    questMultiple: Kelis kartus
+    requirements: Reikalavimai
+    questStages: Etapai
+    noQuests: Anksčiau nebuvo sukurta jokių užduočių.
+  commandsList:
+    name: Komandų sąrašas
+    value: '§eKomanda: {command_label}'
+    console: '§eKonsolė: {command_console}'
+  block:
+    name: Pasirinkite bloką
+    material: '§eMedžiaga: {block_type}'
+    blockData: '§dBlokiniai duomenys (advanced)'
+  blocksList:
+    name: Pasirinkite blokus
+    addBlock: '§aSpustelėkite, jei norite pridėti bloką.'
+  blockAction:
+    name: Pasirinkite blokavimo veiksmą
+    location: '§ePasirinkite tikslią vietą'
+    material: '§ePasirinkite bloko medžiagą'
+  buckets:
+    name: kibiro tipas
+  permission:
+    name: Pasirinkite leidimą
+    perm: '§aLeidimas'
+    world: '§aPasaulis'
+    worldGlobal: '§b§lVisuotinis'
+    remove: Pašalinti leidimą
+    removeLore: '§7Leidimas bus atimtas n§7vietoj duoto.'
+  permissionList:
+    name: Leidimų sąrašas
+    removed: '§ePakilo: §6{permission_removed}'
+    world: '§ePasaulis: §6{permission_world}'
+scoreboard:
+  name: '§6§lMisijos'
+  noLaunched: '§cNėra vykdomų užduočių.'
+  noLaunchedName: '§c§lĮkeliama'
+  noLaunchedDescription: '§c§oĮkeliama'
+  textBetwteenBranch: '§e arba'
+  stage:
+    region: '§eRaskite regioną §6{region_id}'
+    npc: '§eKalbėkitės su NPC §6{dialog_npc_name}'
+    mine: '§eMano {blocks}'
+    placeBlocks: '§eVieta {blocks}'
+    chat: '§eRašykite §6{text}'
+    interactMaterial: '§eSpustelėkite bloką §6 {block} §e'
+    fish: '§eŽuvis §6{items}'
+    craft: '§eAmatas §6{items}'
+    bucket: '§eUžpildykite §6{buckets}'
+    location: '§eEiti į §6{target_x}§e, §6{target_y}§e, §6{target_z}§e į §6{target_world}'
+indication:
+  startQuest: '§7Ar norite pradėti ieškojimą {quest_name}?'
+  closeInventory: '§7Ar tikrai norite uždaryti GUI?'
+  cancelQuest: '§7Ar tikrai norite atšaukti užduotį {quest_name}?'
+  removeQuest: '§7Ar tikrai norite pašalinti užduotį {quest}?'
+misc:
+  format:
+    offText: '§r§e {message}'
+  stageType:
+    region: Raskite regioną
+    npc: Raskite NPC
+    items: atnesk daiktus
+    mobs: Nužudyk mobus
+    mine: Laužyti blokus
+    placeBlocks: Vieta blokus
+    interact: Bendraukite su bloku
+    Fish: Gaudyti žuvis
+    Craft: Amatų daiktas
+    Bucket: Užpildykite kibirą
+    location: Raskite vietą
+    playTime: Žaidimo laikas
+  comparison:
+    equals: lygus {number}
+    different: skiriasi nuo {number}
+    less: griežtai mažiau nei {number}
+    lessOrEquals: mažiau nei {number}
+    greater: griežtai didesnis nei {number}
+    greaterOrEquals: geresnis negu {number}
+  requirement:
+    class: '§bKlasė (-ės) reikalinga'
+    faction: '§bReikalinga frakcija (-os)'
+    jobLevel: '§bReikalingas darbo lygis'
+    combatLevel: '§bBūtinas kovos lygis'
+    experienceLevel: '§bReikalingi patirties lygiai'
+    permissions: '§3Reikalingas leidimas (-ai)'
+    scoreboard: '§dBūtinas rezultatas'
+    region: '§dReikalingas regionas'
+    placeholder: '§bPlaceholder reikalinga vertė'
+    quest: '§aBūtina užduotis'
+    mcMMOSkillLevel: '§dĮgūdžių lygis reikalaujad'
+    money: '§dReikalingi pinigai'
+  bucket:
+    water: Vandens kibiras
+    lava: Lavos kibiras
+    milk: Pieno kibiras
+  questItemLore: '§e§oUžduočių daiktas'
+  hologramText: '§8§lMisija'
+  enabled: Įjungtas
+  disabled: Išjungta
+  unknown: nežinoma
+  notSet: '§cnenustatyta'
+  amount: '§eSuma: {amount}'
+  'yes': 'Taip'
+  'no': 'Ne'
+  and: ir

@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>fr.skytasul</groupId>
+	<artifactId>beautyquests-parent</artifactId>
+	<version>${revision}</version>
+	<packaging>pom</packaging>
+
+	<name>BeautyQuests</name>
+	<description>A Minecraft quests plugin based on a simple-to-use graphical
+		interface.</description>
+	<url>https://github.com/SkytAsul/BeautyQuests/</url>
+
+	<licenses>
+		<license>
+			<name>MIT License</name>
+			<url>http://www.opensource.org/licenses/mit-license.php</url>
+		</license>
+	</licenses>
+
+	<developers>
+		<developer>
+			<name>SkytAsul</name>
+			<email>skytasul@gmail.com</email>
+			<url>https://github.com/SkytAsul</url>
+		</developer>
+	</developers>
+
+	<scm>
+		<connection>scm:git:git://github.com/SkytAsul/BeautyQuests.git</connection>
+		<developerConnection>scm:git:ssh://github.com:SkytAsul/BeautyQuests.git</developerConnection>
+		<url>http://github.com/SkytAsul/BeautyQuests/tree/master</url>
+	</scm>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<maven.compiler.source>21</maven.compiler.source>
+		<maven.compiler.target>21</maven.compiler.target>
+		<maven.compiler.release>21</maven.compiler.release>
+
+		<build.number>unknown</build.number>
+		<revision.raw>2.1.0</revision.raw>
+
+		<!-- Sometimes not the latest version since MockBukkit is long to update -->
+		<minecraft.version>26.1.2</minecraft.version>
+
+		<lamp.version>4.0.0-rc.17</lamp.version>
+		<xseries.version>13.7.1</xseries.version>
+		<hikaricp.version>6.0.0</hikaricp.version>
+		<fastboard.version>2.2.0</fastboard.version>
+		<commons-lang.version>2.6</commons-lang.version>
+	</properties>
+
+	<repositories>
+		<repository>
+			<id>papermc</id>
+			<url>https://repo.papermc.io/repository/maven-public/</url>
+		</repository>
+	</repositories>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.junit</groupId>
+				<artifactId>junit-bom</artifactId>
+				<version>6.0.3</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>io.papermc.paper</groupId>
+				<artifactId>paper-api</artifactId>
+				<version>26.1.2.build.72-stable</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<profiles>
+		<profile>
+			<id>default</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+			<properties>
+				<beautyquests.version>${revision.raw}+build.internal</beautyquests.version>
+				<revision>${revision.raw}-SNAPSHOT</revision>
+			</properties>
+		</profile>
+		<profile>
+			<id>devbuild</id>
+			<properties>
+				<beautyquests.version>${revision.raw}+build.${build.number}</beautyquests.version>
+				<revision>${revision.raw}-SNAPSHOT</revision>
+			</properties>
+		</profile>
+		<profile>
+			<id>release</id>
+			<properties>
+				<beautyquests.version>${revision.raw}</beautyquests.version>
+				<revision>${revision.raw}</revision>
+			</properties>
+		</profile>
+	</profiles>
+
+	<modules>
+		<module>api</module>
+		<module>core</module>
+		<module>paper-nms</module>
+		<module>integrations</module>
+		<module>dist</module>
+	</modules>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<version>3.4.1</version>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>flatten-maven-plugin</artifactId>
+				<version>1.6.0</version>
+				<configuration>
+					<updatePomFile>true</updatePomFile>
+					<flattenMode>resolveCiFriendliesOnly</flattenMode>
+				</configuration>
+				<executions>
+					<execution>
+						<id>flatten</id>
+						<phase>process-resources</phase>
+						<goals>
+							<goal>flatten</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>flatten.clean</id>
+						<phase>clean</phase>
+						<goals>
+							<goal>clean</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-gpg-plugin</artifactId>
+				<version>3.0.1</version>
+				<inherited>false</inherited>
+				<executions>
+					<execution>
+						<id>sign-artifacts</id>
+						<phase>deploy</phase>
+						<goals>
+							<goal>sign</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.sonatype.central</groupId>
+				<artifactId>central-publishing-maven-plugin</artifactId>
+				<version>0.11.0</version>
+				<extensions>true</extensions>
+				<inherited>false</inherited>
+				<configuration>
+					<publishingServerId>central</publishingServerId>
+					<autoPublish>false</autoPublish>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

@@ -1,0 +1,216 @@
+---
+msg:
+  quest:
+    finished:
+      base: '§aGrattis! Du har genomfört uppdraget§e{quest_name}§a!'
+      obtain: '§aDu tog emot {rewards}!'
+    started: '§aDu har startat uppdraget §r§e{quest_name}§o§6!'
+    created: '§aGrattis! Du har skapat uppdraget §e{quest}§a vilket inkluderar {quest_branches} gren(ar)!'
+    edited: '§aGrattis! Du har skapat uppdraget §e{quest}§a vilket nu inkluderar {quest_branches} gren(ar)!'
+    createCancelled: '§cSkapandet eller redigeraren har blivit avbruten av ett annat tillägg!'
+    cancelling: '§cArbetet med uppdragsskapandet har avbrutits.'
+    editCancelling: '§cArbetet med uppdragsredigeringen har avbrutits.'
+    invalidID: '§cUppdraget med id {quest_id} existerar inte.'
+    alreadyStarted: '§cDu har redan påbörjat uppdraget!'
+    notStarted: '§cDu är inte på detta uppdrag just nu.'
+  quests:
+    maxLaunched: '§cDu kan inte ha mer än {quests_max_amount} uppdrag samtidigt...'
+    updated: '§7Uppdrag §e{quest_name}§7 uppdaterades.'
+    checkpoint: '§7Uppdragets checkpoint har uppnåtts!'
+    failed: '§cDu misslyckades med uppdrag {quest_name}'
+  pools:
+    noTime: '§cDu måste vänta {time_left} innan du kan påbörja ett till uppdrag.'
+    allCompleted: '§7Du har slutfört alla uppdrag!'
+    noAvailable: '§7Det finns inget mer uppdrag tillgängligt...'
+    maxQuests: '§cDu kan inte ha mer än {pool_max_quests} uppdrag samtidigt...'
+  questItem:
+    drop: '§cDu kan inte släppa ett uppdragsobjekt!'
+    craft: '§cDu kan inte använda uppdragsföremål till att tillverka!'
+    eat: '§cDu kan inte äta ett uppdragsobjekt!'
+  stageMobs:
+    listMobs: '§aDu måsye döda {mobs}.'
+  writeNPCText: '§aSkriv dialogen som kommer bli sagd till spelaren an NPCn: (Skriv "help" för att få hjälp.)'
+  writeRegionName: '§aSkriv namnet på regionen som krävs för steget:'
+  writeXPGain: '§aSkriv mängden erfarenhet som spelaren kommer få: (Senaste värdet {xp_amount})'
+  writeMobAmount: '§aSkriv antalet mobs att döda:'
+  writeMobName: '§aSkriv mobbens anpassade namn för att döda:'
+  writeMessage: '§aSkriv meddelandet som kommer att visas för spelaren'
+  writeStartMessage: '§aSkriv meddelandet som kommer att skickas i början av uppdraget, "null" om du vill ha standarden eller "none" om du inte vill ha något:'
+  writeEndSound: '§aSkriv ljudnamnet som kommer att spelas till spelaren i slutet av uppdraget, "null" om du vill ha standard en eller "none" om du inte vill ha någon:'
+  writeDescriptionText: '§aSkriv meddelandet som beskriver målet med steget:'
+  writeStageText: '§aSkriv texten som ska skickas till spelaren vid början av steget:'
+  moveToTeleportPoint: '§aGå till den teleporteringsplats som ska användas.'
+  writeNpcName: '§aSkriv namnet på NPCn:'
+  writeNpcSkinName: '§aSkriv namnet på det skin NPCn ska ha:'
+  writeQuestName: '§aSkriv namnet på ditt uppdrag:'
+  writeHologramText: '§aSkriv texten på hologrammet: (Skriv "none" om du inte vill ha ett hologram och "null" om du vill ha standardtexten.)'
+  writeQuestTimer: '§aSkriv tiden (i minuter) som krävs innan du kan göra uppdraget igen: (Skriv "null" om du vill ha standardtiden.)'
+  writeConfirmMessage: '§aSkriv bekräftelsemeddelandet som visas när en spelare är på väg att starta uppdraget: (Skriv "null" om du vill ha standardmeddelandet.)'
+  writeQuestDescription: '§aSkriv beskrivningen av uppdraget som kommer visas i spelarens uppdrags-GUI.'
+  writeQuestMaterial: '§aSkriv materialet för uppdragsobjektet.'
+  requirements:
+    quest: '§aDu måste ha avslutat uppdraget §e{quest_name}§c!'
+    level: '§cDin nivå måste vara {long_level}!'
+    job: '§cDin nivå för jobbet §e{job_name} §cmåste vara {long_level}!'
+    skill: '§cDin nivå för jobbet §e{skill_name}§c måste vara {long_level}!'
+    combatLevel: '§cDin stridsnivå måste vara {long_level}!'
+    money: '§cDu måste ha {money}!'
+    waitTime: '§cDu måste vänta {time_left} innan du kan starta om detta uppdraget!'
+  experience:
+    edited: '§aDu har ändrat erfarenhetförtjänst från {old_xp_amount} till {xp_amount} poäng.'
+  selectNPCToKill: '§aVälj NPCn att döda.'
+  regionDoesntExists: '§cDet här området finns inte. (Du måste vara i samma värld.)'
+  npcDoesntExist: '§cNPCn med id {npc_id} existerar inte.'
+  number:
+    negative: '§cDu måste ange ett positivt nummer!'
+    zero: '§cDu måste ange ett annat nummer än 0!'
+    invalid: '§c{input} är inte ett giltigt nummer.'
+    notInBounds: '§cVärdet måste vara mellan {min} och {max}'
+  errorOccurred: '§cEtt fel har inträffat. Kontakta en administratör! §4§lFelkod: {error}'
+  indexOutOfBounds: '§cNumret {index} är utanför gränsen! Det måste vara mellan {min} och {max}.'
+  invalidBlockData: '§cBlockdata {block_data} är felaktig eller inte kompatibel med block {block_material}.'
+  invalidBlockTag: '§cOtillgänglig blocktagg {block_tag}.'
+  bringBackObjects: Ta mig tillbaka {items}.
+  inventoryFull: '§cDitt utrymme är fullt. Objektet har släppts ner på marken.'
+  versionRequired: 'Version som krävs: §l{version}'
+  restartServer: '§7Starta om din server för att se ändringarna.'
+  dialogs:
+    skipped: '§7§o Dialog överhoppad.'
+    tooFar: '§7§oDu är för långt ifrån {npc_name}...'
+  command:
+    downloadTranslations:
+      syntax: '§cDu måste specificera vilket språk att ladda ner. Exempel: "/quests downloadTranslations sv_SE".'
+      notFound: '§cSpråket {lang} hittades inte för version {version}.'
+      exists: '§cFilen {file_name} existerar redan. Lägg till "-overwite" till ditt kommando för att skriva över den. (/quests downloadTranslations <lang> -overwrite)'
+      downloaded: '§aSpråket {lang} har hämtats! §7Du måste nu redigera filen "/plugins/BeautyQuests/config.yml" för att ändra värdet på §ominecraftTranslationsFile§7 med {lang}, starta sedan om servern.'
+    checkpoint:
+      noCheckpoint: '§cIngen checkpoint hittades för uppdraget {quest}.'
+      questNotStarted: '§cDu utför inte detta uppdraget.'
+    setStage:
+      branchDoesntExist: '§cGrenen med id {branch_id} existerar inte.'
+      doesntExist: '§cSteget med id {stage_id} existerar inte.'
+      next: '§cSteget har hoppats över.'
+      nextUnavailable: '§cValet "skip" är inte tillgängligt när spelaren är i slutet av grenen.'
+      set: '§cSteget {stage_id} har körts.'
+    startDialog:
+      impossible: '§cOmöjligt att starta dialogen nu.'
+      noDialog: '§cSpelaren har inga väntande dialogruta.'
+      alreadyIn: '§cSpelaren har redan en dialog.'
+      success: '§aStartade dialog för spelare {player} i uppdraget {quest}!'
+    invalidCommand:
+      simple: '§cDet här kommandot existerar inte. Skriv §ehelp§c.'
+    itemChanged: '§cObjektet har redigerats. Förändringarna kommer gälla efter en omstart.'
+    itemRemoved: '§aHologramobjektet har tagits bort.'
+    removed: '§aUppdraget {quest_name} har tagits bort.'
+    leaveAll: '§aDu har tvångsavslutat {success} uppdrag. Fel: {errors}'
+    resetPlayer:
+      player: '§6All information om dina {quest_amount} uppdrag har blivit borttagna av {deleter_name}.'
+    resetPlayerQuest:
+      player: '§6All information om uppdraget {quest} har tagits bort av {deleter_name}.'
+      remover: '§6{player} uppdragsinformation av {quest} har blivit borttaget.'
+    resetQuest: '§6Tog bort datan för uppdraget {player_amount} från spelare.'
+    startQuestNoRequirements: '§cSpelaren uppfyller inte kraven för uppdraget {quest}... Lägg till "-overrideRequirements" i slutet av ditt kommando för att kringgå kontrollen.'
+    cancelQuest: '§6Du har avbrutit uppdraget {quest}.'
+    cancelQuestUnavailable: '§cUppdraget {quest} kan inte avbrytas.'
+    backupCreated: '§6Du har skapat och sparat en backup av alla uppdrag och spelarinformation.'
+    adminModeEntered: '§aDu har gått in i Admin-läget.'
+    adminModeLeft: '§aDu har lämnat Admin-läget.'
+    resetPlayerPool:
+      timer: '§aDu har återställt {pool} pooltimer av {player}.'
+      full: '§aDu har återställt {pool} pooldata av {player}.'
+    startPlayerPool:
+      error: 'Det gick inte att starta poolen {pool} för {player}.'
+      success: 'Startade poolarna {pool} till {player}. Resultat: {result}'
+    scoreboard:
+      lineSet: '§6du har framgångsrikt redigerat rad {line_id}.'
+      lineReset: '§6Du har framgångsrikt återställt rad {line_id}.'
+      lineRemoved: '§6du har framgångsrikt tagit bort rad {line_id}.'
+      lineInexistant: '§cRad {line_id} existerar inte.'
+      resetAll: '§6Du har nollställt resultattavlan för spelaren {player_name}.'
+      hidden: '§6Resultattavlan för spelaren {player_name} har blivit döljd.'
+      shown: '§6Resultattavlan för spelaren {player_name} har blivit visad.'
+      own:
+        hidden: '§7Din resultattavla är nu dold.'
+        shown: '§7Din resultattavla visas igen.'
+  typeCancel: '§aSkriv "avbryt" för att komma tillbaka till den sista texten.'
+  editor:
+    blockAmount: '§aSkriv mängden block:'
+    blockName: '§aSkriv namnet på blocket:'
+    blockData: '§aSkriv blockdata (tillgängliga blockdata: {available_datas}):'
+    blockTag: '§aSkriv in blocktaggen (tillgängliga taggar: §7{available_tags}§a):'
+    typeBucketAmount: '§aSkriv mängden hinkar att fylla:'
+    typeDamageAmount: 'Skriv mängden skada spelaren måste dela ut:'
+    goToLocation: '§aGå till önskad plats för steget.'
+    typeLocationRadius: '§aSkriv avståndet från platsen som krävs:'
+    typeGameTicks: '§aSkriv spel ticks som krävs (20 ticks = 1 sekund):'
+    already: '§cDu är redan i editorn.'
+    stage:
+      location:
+        typeWorldPattern: '§aSkriv en regex för världsnamn:'
+    enter:
+      title: '§6~ Redigeringsläge ~'
+      subtitle: '§6Skriv "/quests exitEditor" för att tvinga editorn att sluta.'
+      list: '§c⚠ §7Du har kommit till en "list"-redigerare. Använd "add" för att lägga till rader. Se "help" (utan "") för hjälp. §e§lSkriv "close" för att avsluta.'
+    npc:
+      enter: '§aKlicka på en NPC, eller skriv "avbryt".'
+      choseStarter: '§aVälj NPC som startar uppdraget.'
+      notStarter: '§cDen här NPC är inte en uppdragsstartare.'
+    text:
+      argNotSupported: '§cArgumentet {arg} stöds inte.'
+      chooseLvlRequired: '§aSkriv det antal nivåer som krävs:'
+      chooseJobRequired: '§aSkriv namn på det önskade jobbet:'
+      choosePermissionRequired: '§aSkriv den behörighet som krävs för att starta uppdraget:'
+      choosePermissionMessage: '§aDu kan välja ett avvisningsmeddelande om spelaren inte har den nödvändiga behörigheten. (För att hoppa över detta steg, skriv "null".)'
+      choosePlaceholderRequired:
+        identifier: '§aSkriv ned namnet på platshållaren som krävs, utan procent-tecken:'
+      chooseSkillRequired: '§aSkriv namnet på den färdighet som krävs:'
+      chooseMoneyRequired: '§aSkriv hur mycket pengar som krävs:'
+      reward:
+        permissionName: '§aSkriv namnet på rättigheten.'
+        permissionWorld: '§aSkriv den värld där rättigheten kommer att redigeras, eller "null" om du vill det sak vara globalt.'
+        money: '§aSkriv hur mycket pengar som ska tas emot:'
+      chooseObjectiveRequired: '§aSkriv objektets namn.'
+    itemCreator:
+      itemType: '§aAnge namnet på önskad typ av objekt:'
+      itemAmount: '§aAnge mängden föremål():'
+      itemName: '§aSkriv objektets namn:'
+      itemLore: '§aÄndra objektets lor: (Skriv "help" för mer hjälp.)'
+      unknownItemType: '§cOkänd typ av objekt.'
+    textList:
+      removed: '§aText "§7{msg}§a" borttagen.'
+      help:
+        header: '§6§lBeautyQuests — Hjälp med listredigerare'
+        add: '§6add <meddelande>: §eLägg till en text.'
+        remove: '§6ta bort <id>: §eTa bort en text.'
+        list: '§6list: §eSe alla tillagda texter.'
+        close: '§6close: §eValidera de tillagda texterna.'
+    availableElements: 'Tillgängliga element: §e{available_elements}'
+    noSuchElement: '§cDet finns inget sådant element. Tillåtna element är: §e{available_elements}'
+    invalidPattern: '§cOgiltigt regexmönster §4{input}§c.'
+    comparisonTypeDefault: '§aVälj den jämförelsetyp du vill ha bland {available}. Standardjämförelsen är: §e§l{default}§r§a. Skriv §onull§r§a för att använda den.'
+    scoreboardObjectiveNotFound: '§cOkänt mål i resultattavlan.'
+advancement:
+  notStarted: Inte påbörjad
+inv:
+  validate: '§b§lValidera'
+  cancel: '§c§lAvbryt'
+  search: '§e§lSök'
+  addObject: '§aLägg till ett objekt'
+  confirm:
+    name: Är du säker?
+    'yes': '§aBekräfta'
+    'no': '§cAvbryt'
+  create:
+    stageCreate: '§aSkapa nytt steg'
+    stageRemove: '§cTa bort detta steg'
+    stageUp: Flytta upp
+    stageDown: Flytta ned
+    stageType: '§7Scentyp: §e{stage_type}'
+    cantFinish: '§7Du måste skapa minst ett steg innan du slutför!'
+    findNPC: '§aHitta NPC'
+    bringBack: '§aTa tillbaka föremål'
+    findRegion: '§aHitta region'
+    killMobs: '§aDöda monster'
+    mineBlocks: '§aBryt block'
+    placeBlocks: '§aPlacera block'
+    talkChat: '§aSkriv i chatten'

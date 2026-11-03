@@ -1,0 +1,92 @@
+package fr.skytasul.quests.integrations.worldguard;
+
+import com.cryptomorin.xseries.XMaterial;
+import com.sk89q.worldedit.bukkit.BukkitAdapter;
+import com.sk89q.worldedit.math.BlockVector3;
+import com.sk89q.worldguard.WorldGuard;
+import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
+import com.sk89q.worldguard.protection.ApplicableRegionSet;
+import com.sk89q.worldguard.protection.managers.RegionManager;
+import com.sk89q.worldguard.protection.regions.ProtectedRegion;
+import com.sk89q.worldguard.session.SessionManager;
+import fr.skytasul.quests.api.QuestsAPI;
+import fr.skytasul.quests.api.QuestsPlugin;
+import fr.skytasul.quests.api.gui.ItemUtils;
+import fr.skytasul.quests.api.localization.Lang;
+import fr.skytasul.quests.api.requirements.RequirementCreator;
+import fr.skytasul.quests.api.stages.StageType;
+import fr.skytasul.quests.api.utils.MissingDependencyException;
+import org.apache.commons.lang.Validate;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
+
+public class BQWorldGuard {
+
+	private static BQWorldGuard instance;
+
+	private WorldGuardPlugin plugin = (WorldGuardPlugin) Bukkit.getPluginManager().getPlugin("WorldGuard");
+
+	protected BQWorldGuard() {
+		if (plugin == null) throw new MissingDependencyException("WorldGuard");
+
+		SessionManager sessionManager = WorldGuard.getInstance().getPlatform().getSessionManager();
+		if (!WorldGuardEntryHandler.FACTORY.register(sessionManager))
+			throw new IllegalStateException("Failed to register WorldGuard entry handler");
+		QuestsPlugin.getPlugin().getLoggerExpanded().debug("Now using WorldGuard entry API.");
+		WorldGuardEntryHandler.FACTORY.registerSessions(sessionManager);
+	}
+
+	private void disable() {
+		WorldGuardEntryHandler.FACTORY.unregister(WorldGuard.getInstance().getPlatform().getSessionManager());
+		QuestsPlugin.getPlugin().getLoggerExpanded().debug("Unregistered from WorldGuard entry API.");
+	}
+
+	public RegionManager getRegionManager(World world) {
+		return WorldGuard.getInstance().getPlatform().getRegionContainer().get(BukkitAdapter.adapt(world));
+	}
+
+	public String getRegionID(Object region) {
+		return ((ProtectedRegion) region).getId();
+	}
+
+	public boolean isInRegion(ProtectedRegion region, Location to, boolean mustBeHighest) {
+		ApplicableRegionSet regions = getRegionManager(to.getWorld())
+				.getApplicableRegions(BlockVector3.at(to.getBlockX(), to.getBlockY(), to.getBlockZ()));
+		ProtectedRegion global = getRegionManager(to.getWorld()).getRegion("__global__");
+		boolean isGlobal = region.equals(global);
+		if (mustBeHighest) {
+			ProtectedRegion highest = regions.getRegions().isEmpty() ? global : regions.getRegions().iterator().next();
+			return highest.equals(region) || (isGlobal && global.getPriority() >= highest.getPriority());
+		} else {
+			return isGlobal || regions.getRegions().contains(region);
+		}
+	}
+
+	public boolean regionExists(String name, World w) {
+		return getRegionManager(w).getRegion(name) != null;
+	}
+
+	public ProtectedRegion getRegion(String name, World w) {
+		if (w == null) return null;
+		return getRegionManager(w).getRegion(name);
+	}
+
+	public static void initialize() {
+		Validate.isTrue(instance == null, "BQ WorldGuard integration already initialized.");
+		instance = new BQWorldGuard();
+
+		QuestsAPI.getAPI().getStages().register(new StageType<>("REGION", StageArea.class, Lang.Find.name(), StageArea::deserialize,
+				ItemUtils.item(XMaterial.WOODEN_AXE, Lang.stageGoTo.toString()), StageArea.Creator::new));
+		QuestsAPI.getAPI().getRequirements().register(new RequirementCreator("regionRequired", RegionRequirement.class, ItemUtils.item(XMaterial.WOODEN_AXE, Lang.RRegion.toString()), RegionRequirement::new));
+	}
+
+	public static void unload() {
+		instance.disable();
+	}
+
+	public static BQWorldGuard getInstance() {
+		return instance;
+	}
+
+}

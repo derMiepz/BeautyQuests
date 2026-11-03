@@ -1,0 +1,239 @@
+package fr.skytasul.quests;
+
+import com.cryptomorin.xseries.XMaterial;
+import fr.skytasul.quests.api.QuestsConfiguration;
+import fr.skytasul.quests.api.QuestsPlugin;
+import fr.skytasul.quests.api.events.internal.BQBlockBreakEvent;
+import fr.skytasul.quests.api.events.internal.BQCraftEvent;
+import fr.skytasul.quests.api.localization.Lang;
+import fr.skytasul.quests.api.npcs.BqNpc;
+import fr.skytasul.quests.api.players.PlayerQuester;
+import fr.skytasul.quests.api.pools.QuestPoolController;
+import fr.skytasul.quests.api.questers.events.QuesterLeaveEvent;
+import fr.skytasul.quests.api.quests.Quest;
+import fr.skytasul.quests.api.utils.Utils;
+import fr.skytasul.quests.api.utils.messaging.MessageType;
+import fr.skytasul.quests.api.utils.messaging.MessageUtils;
+import fr.skytasul.quests.npcs.BQNPCClickEvent;
+import fr.skytasul.quests.structure.QuestImplementation;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.event.inventory.SmithItemEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
+import org.bukkit.inventory.ComplexRecipe;
+import org.bukkit.inventory.ItemStack;
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class QuestsListener implements Listener{
+
+	private List<QuestPoolController> lockedPools = Collections.synchronizedList(new ArrayList<>());
+
+	@EventHandler (priority = EventPriority.HIGHEST, ignoreCancelled = true)
+	public void onNPCClick(BQNPCClickEvent e) {
+		if (e.isCancelled()) return;
+		if (!QuestsConfiguration.getConfig().getQuestsConfig().getNpcClicks().contains(e.getClick()))
+			return;
+
+		Player p = e.getPlayer();
+		BqNpc npc = e.getNPC();
+
+		if (QuestsPlugin.getPlugin().getGuiManager().hasGuiOpened(p)
+				|| QuestsPlugin.getPlugin().getEditorManager().isInEditor(p))
+			return;
+
+		PlayerQuester quester = BeautyQuests.getInstance().getPlayersManager().getQuester(p);
+		if (quester == null)
+			return;
+
+		Set<Quest> quests = npc.getQuests();
+		quests = quests.stream().filter(qu -> !qu.hasStarted(quester) && (qu.isRepeatable() || !qu.hasFinished(quester)))
+				.collect(Collectors.toSet());
+		if (quests.isEmpty() && npc.getPools().isEmpty()) return;
+
+		List<QuestImplementation> launcheable = new ArrayList<>();
+		List<QuestImplementation> requirements = new ArrayList<>();
+		List<QuestImplementation> timer = new ArrayList<>();
+		for (Quest qu : quests) {
+			QuestImplementation quest = (QuestImplementation) qu;
+			try {
+				if (!quest.testRequirements(p, quester, false)) {
+					requirements.add(quest);
+				} else if (!quest.testTimer(quester, false)) {
+					timer.add(quest);
+				} else
+					launcheable.add(quest);
+			}catch (Exception ex) {
+				QuestsPlugin.getPlugin().getLoggerExpanded()
+						.severe("An exception occured when checking requirements on the quest " + quest.getId()
+								+ " for player " + p.getName(), ex);
+			}
+		}
+
+		Set<QuestPoolController> startablePools = npc.getPools().stream().filter(pool -> {
+			try {
+				if (lockedPools.contains(pool)) {
+					QuestsPlugin.getPlugin().getLoggerExpanded().warning("{} tried to start the pool {} too fast",
+							quester.getDetailedName(), pool.getId());
+					return false;
+				}
+				return pool.canGive(p).isSuccess();
+			}catch (Exception ex) {
+				QuestsPlugin.getPlugin().getLoggerExpanded().severe("An exception occured when checking requirements on the pool " + pool.getId() + " for player " + p.getName(), ex);
+				return false;
+			}
+		}).collect(Collectors.toSet());
+
+		e.setCancelled(true);
+		if (!launcheable.isEmpty()) {
+			for (QuestImplementation quest : launcheable) {
+				if (quest.isInDialog(p)) {
+					quest.doNpcClick(p);
+					return;
+				}
+			}
+
+			Collection<? extends Quest> guiQuests =
+					QuestsConfiguration.getConfig().getQuestsSelectionConfig().hideNoRequirements() ? launcheable : quests;
+			if (guiQuests.size() == 1
+					&& QuestsConfiguration.getConfig().getQuestsSelectionConfig().skipGuiIfOnlyOneQuest()) {
+				guiQuests.iterator().next().doNpcClick(p);
+			} else if (!guiQuests.isEmpty()) {
+				QuestsPlugin.getPlugin().getGuiManager().getFactory().createPlayerQuestSelection(p, (Collection) guiQuests)
+						.open(p);
+			}
+		}else if (!startablePools.isEmpty()) {
+			QuestPoolController pool = startablePools.iterator().next();
+			lockedPools.add(pool);
+			pool.give(p).whenComplete((result, ex) -> {
+				lockedPools.remove(pool);
+				if (ex != null) {
+					QuestsPlugin.getPlugin().getLoggerExpanded().severe("Failed to give pool {} to {}", ex,
+							quester.getDetailedName());
+				} else if (result != null) {
+					QuestsPlugin.getPlugin().getLoggerExpanded().debug("NPC {}: {} pools, result: {}", npc.getId(),
+							startablePools.size(), result);
+				}
+			});
+		}else {
+			if (!timer.isEmpty()) {
+				timer.get(0).testTimer(quester, true);
+			}else if (!requirements.isEmpty()) {
+				requirements.get(0).testRequirements(p, quester, true);
+			}else {
+				for (var pool : npc.getPools()) {
+					var reason = pool.canGive(p).reason();
+					if (reason != null) {
+						MessageUtils.sendMessage(p, reason, MessageType.DefaultMessageType.PREFIXED);
+						break;
+					}
+				}
+			}
+			e.setCancelled(false);
+		}
+	}
+
+	@EventHandler
+	public void onAccountLeave(QuesterLeaveEvent e) {
+		BeautyQuests.getInstance().getQuestsManager().getQuests().forEach(x -> x.leave(e.getPlayer()));
+	}
+
+	@EventHandler (priority = EventPriority.HIGH)
+	public void onDrop(PlayerDropItemEvent e){
+		if (Utils.isQuestItem(e.getItemDrop().getItemStack())) {
+			e.setCancelled(true);
+			Lang.QUEST_ITEM_DROP.send(e.getPlayer());
+		}
+	}
+
+	@EventHandler
+	public void onEntityDamage(EntityDamageByEntityEvent e) { // firework damage
+		if (e.getDamager().hasMetadata("questFinish")) e.setCancelled(true);
+	}
+
+	@EventHandler (priority = EventPriority.HIGH)
+	public void onCraft(CraftItemEvent e) {
+		for (ItemStack item : e.getInventory().getMatrix()) {
+			if (Utils.isQuestItem(item)) {
+				e.setCancelled(true);
+				Lang.QUEST_ITEM_CRAFT.send(e.getWhoClicked());
+				break;
+			}
+		}
+	}
+
+	@EventHandler (priority = EventPriority.HIGH)
+	public void onEat(PlayerItemConsumeEvent e) {
+		if (Utils.isQuestItem(e.getItem())) {
+			e.setCancelled(true);
+			Lang.QUEST_ITEM_EAT.send(e.getPlayer());
+		}
+	}
+
+	@EventHandler (priority = EventPriority.HIGH)
+	public void onDeath(PlayerDeathEvent event) {
+		for (Iterator<ItemStack> iterator = event.getDrops().iterator(); iterator.hasNext();) {
+			ItemStack item = iterator.next();
+			if (Utils.isQuestItem(item)) {
+				iterator.remove();
+				event.getItemsToKeep().add(item);
+			}
+		}
+	}
+
+	@EventHandler
+	public void onPlace(BlockPlaceEvent e) {
+		if (Utils.isQuestItem(e.getItemInHand())) {
+			e.setCancelled(true);
+			Lang.QUEST_ITEM_PLACE.send(e.getPlayer());
+		}
+	}
+
+	@EventHandler(priority = EventPriority.HIGHEST)
+	public void onBreak(BlockBreakEvent e) {
+		if (e.isCancelled()) return;
+		if (e.getPlayer() == null) return;
+		Bukkit.getPluginManager().callEvent(new BQBlockBreakEvent(e.getPlayer(), Arrays.asList(e.getBlock())));
+	}
+
+	@EventHandler (priority = EventPriority.MONITOR, ignoreCancelled = true)
+	public void onCraftMonitor(CraftItemEvent e){
+		if (e.getInventory().getResult() == null) return;
+
+		int resultCount = e.getInventory().getResult().getAmount();
+		int materialCount = Integer.MAX_VALUE;
+
+		for (ItemStack is : e.getInventory().getMatrix())
+			if (is != null && is.getAmount() < materialCount)
+				materialCount = is.getAmount();
+
+		int maxCraftAmount = resultCount * materialCount;
+
+		ItemStack item = e.getRecipe().getResult();
+		if (item.getType() == Material.AIR && e.getRecipe() instanceof ComplexRecipe) {
+			String key = ((ComplexRecipe) e.getRecipe()).getKey().toString();
+			if (key.equals("minecraft:suspicious_stew")) {
+				item = XMaterial.SUSPICIOUS_STEW.parseItem();
+			}
+		}
+
+		Bukkit.getPluginManager().callEvent(new BQCraftEvent(e, item, maxCraftAmount));
+	}
+
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+	public void onSmith(SmithItemEvent event) {
+		Bukkit.getPluginManager()
+				.callEvent(new BQCraftEvent(event, event.getCurrentItem(), event.getCurrentItem().getAmount()));
+	}
+
+}

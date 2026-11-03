@@ -1,0 +1,62 @@
+package fr.skytasul.quests.api.stages;
+
+import fr.skytasul.quests.api.options.description.DescriptionSource;
+import fr.skytasul.quests.api.questers.Quester;
+import fr.skytasul.quests.api.quests.branches.QuestBranch;
+import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import java.util.Collection;
+
+public interface StageController {
+
+	public @NotNull QuestBranch getBranch();
+
+	public @NotNull AbstractStage getStage();
+
+	public @NotNull StageType<?> getStageType();
+
+	/**
+	 * Constructs a collection of questers that should get advancement applied when the player does
+	 * something for the stage.
+	 * <p>
+	 * All of the questers returned will return <code>true</code> if passed to
+	 * {@link #hasStarted(Quester)}.
+	 *
+	 * @param player Player that did an action regarding the stage
+	 * @return a collection of questers that should be updated
+	 */
+	public @NotNull Collection<Quester> getApplicableQuesters(@NotNull Player player);
+
+	/**
+	 * Gets whether or not a quester can get advancement when the player performs the action of the
+	 * stage.
+	 *
+	 * @param player Player that did an action regarding the stage
+	 * @return <code>true</code> if {@link #getApplicableQuesters(Player)} will return a non-empty
+	 *         collection
+	 */
+	public boolean hasApplicableQuester(@NotNull Player player);
+
+	public void finishStage(@NotNull Quester quester);
+
+	public boolean hasStarted(@NotNull Quester quester);
+
+	public void updateObjective(@NotNull Quester quester, @NotNull String dataKey, @Nullable Object dataValue);
+
+	/**
+	 * Notify that the stage has been updated for the quester.
+	 * <p>
+	 * This is similar to {@link #updateObjective(Quester, String, Object)} but with no data change.
+	 *
+	 * @param quester quester that got updated
+	 */
+	public void notifyQuesterUpdate(@NotNull Quester quester);
+
+	public @Nullable String getDescriptionLine(@NotNull Quester quester, @NotNull DescriptionSource source);
+
+	public <T> @Nullable T getData(@NotNull Quester quester, @NotNull String dataKey, @Nullable Class<T> dataType);
+
+	public @NotNull StageIndex getIndex();
+
+}
